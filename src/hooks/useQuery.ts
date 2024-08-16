@@ -2,38 +2,42 @@ import { useCallback, useContext } from "react";
 import useStorage from "./useStorage";
 import { AppStateContext } from "../contexts/appStateContext";
 
-type Response = {
+export type QueryResponse = {
   head: {
     vars: string[];
   };
   results: {
     bindings: {
-      g: {
-        type: string;
+      [column: string]: {
+        type: "uri";
         value: string;
-      };
+      } | undefined;
     }[];
   };
 };
 
-const useGetGraphs = () => {
+const useQuery = (dataset: string) => {
   const appState = useContext(AppStateContext);
-  const { state: { server: { attributes } } } = appState;
+  const {
+    state: {
+      server: { attributes },
+    },
+  } = appState;
 
   const { getAuthData } = useStorage();
 
   const authData = getAuthData();
 
-  const getGraphs = useCallback(
-    async (dataset: string) => {
+  const getQuery = useCallback(
+    async (query: string) => {
       if (!authData.host || !authData.credentials || !attributes) {
         location.reload();
-        return [];
+        return {} as QueryResponse;
       }
 
       const { host, credentials } = authData;
       const currentDataset = attributes.datasets.find(
-        (d) => d["ds.name"] === dataset
+        (d) => d["ds.name"] === dataset || d["ds.name"] === `/${dataset}`
       );
 
       if (!currentDataset) {
@@ -49,18 +53,13 @@ const useGetGraphs = () => {
           Authorization: `Basic ${credentials}`,
         },
         body: JSON.stringify({
-          query: `
-          SELECT ?g
-          WHERE {
-            GRAPH ?g { }
-          }
-        `,
+          query,
         }),
       });
 
       if (response.ok) {
         const content = (await response.json()) as QueryResponse;
-        return content.results.bindings.map((binding) => binding.g.value);
+        return content;
       }
 
       if (response.status === 401) {
@@ -69,10 +68,10 @@ const useGetGraphs = () => {
 
       throw new Error("Unable to connect to host");
     },
-    [authData, attributes]
+    [authData, attributes, dataset]
   );
 
-  return { getGraphs };
+  return { getQuery };
 };
 
-export default useGetGraphs;
+export default useQuery;

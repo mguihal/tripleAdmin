@@ -1,20 +1,5 @@
 import { useCallback } from "react";
-
-export type ServerAttributes = {
-  built: string;
-  startDateTime: string;
-  uptime: number;
-  version: string;
-  datasets: {
-    "ds.name": string;
-    "ds.state": boolean;
-    "ds.services": {
-      "srv.type": "query" | "update" | "upload" | "gsp-r" | "gsp-rw";
-      "srv.description": string;
-      "srv.endpoints": string[];
-    }[];
-  }[];
-};
+import { ServerAttributes } from "../state/useServer";
 
 const useGetServer = () => {
   const getServer = useCallback(async (host: string, credentials: string) => {
@@ -25,6 +10,7 @@ const useGetServer = () => {
         "X-TriplePath": "/$/server",
         Authorization: `Basic ${credentials}`,
       },
+      signal: AbortSignal.timeout(10000),
     });
 
     if (response.ok) {

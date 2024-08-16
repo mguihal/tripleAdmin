@@ -10,12 +10,21 @@
     "serve": "NODE_ENV=production node server.js"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/language": "^6.10.2",
+    "@codemirror/legacy-modes": "^6.4.0",
+    "@codemirror/lint": "^6.8.1",
+    "@types/sparqljs": "^3.1.11",
+    "@uiw/react-codemirror": "^4.23.0",
     "antd": "^5.19.2",
     "body-parser": "^1.20.2",
     "express": "^4.19.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-resizable-panels": "^2.0.22",
+    "react-resize-detector": "^11.0.1",
+    "sass": "^1.77.8",
+    "sparqljs": "^3.7.2",
     "vite-express": "^0.17.0"
   },
   "devDependencies": {
@@ -29,5 +38,10 @@
     "eslint-plugin-react-refresh": "^0.4.7",
     "typescript": "^5.2.2",
     "vite": "^5.3.4"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "trailingComma": "all",
+    "printWidth": 120
   }
 }

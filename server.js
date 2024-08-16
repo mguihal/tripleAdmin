@@ -31,6 +31,11 @@ app.use("/api/server", async (req, res) => {
       }
     );
 
+    if (response.status === 400) {
+      const errorContent = await response.text();
+      console.log('Error 400', errorContent);
+    }
+
     if (!response.ok) {
       return res.sendStatus(response.status);
     }
