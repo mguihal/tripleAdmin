@@ -1,4 +1,12 @@
 .editor {
   height: 100%;
+}
+
+.spinner {
+  height: 100%;
   overflow: auto;
+
+  :global(.ant-spin-container) {
+    height: 100%;
+  }
 }

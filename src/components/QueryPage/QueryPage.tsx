@@ -1,92 +1,115 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Empty, Flex, Table } from 'antd';
-import useQuery, { QueryResponse } from '../../hooks/useQuery';
-import { useResizeDetector } from 'react-resize-detector';
+import { Empty, Flex, Result } from 'antd';
+import useQuery, { Response } from '../../hooks/useQuery';
 import Editor from '../Editor/Editor';
+import { useAppStateContext } from '../../hooks/useAppState';
+import DataTable from '../DataTable/DataTable';
+import QueryHistory from '../QueryHistory/QueryHistory';
 
 type Props = {
   dataset: string;
 };
 
 const QueryPage = ({ dataset }: Props) => {
+  const {
+    state: {
+      queries: { activeQueryTime },
+    },
+    actions: {
+      queries: { setActiveQueryTime, pushQueryHistory },
+    },
+  } = useAppStateContext();
+
   const { getQuery } = useQuery(dataset);
 
-  const [queryResult, setQueryResult] = useState<QueryResponse>();
-  const { height, ref } = useResizeDetector();
-
-  const dataColumns = useMemo(() => {
-    return queryResult
-      ? [
-          {
-            key: 'id',
-            fixed: 'left',
-            dataIndex: '__id',
-            width: 60,
-          },
-          ...queryResult.head.vars.map((column) => ({
-            title: column,
-            key: column,
-            dataIndex: column,
-            render: (data) => {
-              return (
-                <div>
-                  [{data?.type}] {data?.value}
-                </div>
-              );
-            },
-          })),
-        ]
-      : [];
-  }, [queryResult]);
-
-  const dataSource = useMemo(() => {
-    return queryResult
-      ? queryResult.results.bindings.map((row, i) => ({
-          ...row,
-          key: i,
-          __id: i + 1,
-        }))
-      : [];
-  }, [queryResult]);
+  const [view, setView] = useState<'results' | 'history'>('results');
+  const [pendingQuery, setPendingQuery] = useState(false);
+  const [queryResult, setQueryResult] = useState<Response<string>>();
+  const [editorQuery, setEditorQuery] = useState<string>();
 
   const handleRunQuery = useCallback(
     (query: string) => {
+      setPendingQuery(true);
+      const startTime = Date.now();
       getQuery(query)
-        .then((result) => {
-          console.log('RES', result);
-          setQueryResult(result);
+        .then((response) => {
+          setPendingQuery(false);
+          const endTime = Date.now();
+          setActiveQueryTime(endTime - startTime);
+
+          const rowsLength = response.type === 'read' ? response.data.results.bindings.length : 1;
+          pushQueryHistory(dataset, query, endTime - startTime, rowsLength);
+
+          console.log('RES', response);
+          setQueryResult(response);
+          setView('results');
         })
-        .catch((error) => console.log('ERR', error));
+        .catch((error) => {
+          setPendingQuery(false);
+          setQueryResult({ type: 'error' });
+          console.log('ERR', error);
+        });
     },
-    [getQuery],
+    [dataset, getQuery, pushQueryHistory, setActiveQueryTime],
   );
 
   return (
     <PanelGroup direction="vertical" autoSaveId="tripleAdminLayout2">
       <Panel defaultSize={30} minSize={20} maxSize={80} style={{ paddingBottom: 4 }}>
-        <Editor dataset={dataset} runQuery={handleRunQuery} />
+        <Editor
+          dataset={dataset}
+          runQuery={handleRunQuery}
+          pending={pendingQuery}
+          view={view}
+          onViewChange={(v) => setView(v)}
+          query={editorQuery}
+        />
       </Panel>
       <PanelResizeHandle style={{ borderTop: '1px dashed #AAA' }} />
       <Panel minSize={20} maxSize={80}>
-        {!queryResult && (
+        {view === 'results' && !queryResult && (
           <Flex vertical justify="center" style={{ height: '100%' }}>
             <Empty />
           </Flex>
         )}
 
-        {queryResult && (
-          <Flex vertical justify="flex-start" style={{ height: '100%' }} ref={ref}>
-            <Table
-              dataSource={dataSource}
-              columns={dataColumns}
-              scroll={{ y: (height || 0) - 55 - 64 }}
-              pagination={{
-                hideOnSinglePage: false,
-                showSizeChanger: true,
-              }}
+        {view === 'results' && queryResult?.type === 'read' && (
+          <DataTable queryResult={queryResult} queryTime={activeQueryTime} />
+        )}
+
+        {view === 'results' && queryResult?.type === 'ask' && (
+          <Flex vertical justify="center" style={{ height: '100%' }}>
+            <Result
+              status={queryResult.data ? 'success' : 'error'}
+              title={queryResult.data ? 'Triples has been found' : 'No matching triples have been found'}
             />
           </Flex>
+        )}
+
+        {view === 'results' && queryResult?.type === 'update' && (
+          <Flex vertical justify="center" style={{ height: '100%' }}>
+            <Result status="success" title="Query successfully executed" />
+          </Flex>
+        )}
+
+        {view === 'results' && queryResult?.type === 'error' && (
+          <Flex vertical justify="center" style={{ height: '100%' }}>
+            <Result status="error" title="An error occurred during query execution" />
+          </Flex>
+        )}
+
+        {view === 'history' && (
+          <QueryHistory
+            dataset={dataset}
+            onEditQuery={(query) => {
+              setEditorQuery(query);
+            }}
+            onRerunQuery={(query) => {
+              setEditorQuery(query);
+              handleRunQuery(query);
+            }}
+          />
         )}
       </Panel>
     </PanelGroup>

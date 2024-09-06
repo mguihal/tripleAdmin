@@ -1,74 +1,130 @@
-import { useCallback, useContext } from "react";
-import useStorage from "./useStorage";
-import { AppStateContext } from "../contexts/appStateContext";
+import { useCallback } from 'react';
+import { Parser } from 'sparqljs';
+import { useAppStateContext } from './useAppState';
 
-export type QueryResponse = {
-  head: {
-    vars: string[];
-  };
-  results: {
-    bindings: {
-      [column: string]: {
-        type: "uri";
-        value: string;
-      } | undefined;
-    }[];
+const parser = new Parser();
+
+export type Column = {
+  type: 'uri' | 'literal' | 'bnode';
+  value: string;
+};
+
+export type Row<T extends string> = {
+  [column in T]: Column | undefined;
+};
+
+export type ReadResponse<T extends string> = {
+  type: 'read';
+  data: {
+    head: {
+      vars: T[];
+    };
+    results: {
+      bindings: Row<T>[];
+    };
   };
 };
 
-const useQuery = (dataset: string) => {
-  const appState = useContext(AppStateContext);
+type AskResponse = {
+  type: 'ask';
+  data: boolean;
+};
+
+type UpdateResponse = {
+  type: 'update';
+  data: 'success';
+};
+
+type ErrorResponse = {
+  type: 'error';
+};
+
+export type Response<T extends string> = ReadResponse<T> | AskResponse | UpdateResponse | ErrorResponse;
+
+const useQuery = (queryDataset?: string) => {
   const {
     state: {
+      auth,
       server: { attributes },
     },
-  } = appState;
-
-  const { getAuthData } = useStorage();
-
-  const authData = getAuthData();
+  } = useAppStateContext();
 
   const getQuery = useCallback(
-    async (query: string) => {
-      if (!authData.host || !authData.credentials || !attributes) {
+    async <T extends string>(query: string, dataset: string | undefined = queryDataset): Promise<Response<T>> => {
+      const host = auth.getHost();
+      const credentials = auth.getCredentials();
+
+      if (!host || !credentials || !attributes) {
         location.reload();
-        return {} as QueryResponse;
+        return {
+          type: 'error',
+        };
       }
 
-      const { host, credentials } = authData;
+      if (!dataset) {
+        throw new Error('No dataset provided to query');
+      }
+
       const currentDataset = attributes.datasets.find(
-        (d) => d["ds.name"] === dataset || d["ds.name"] === `/${dataset}`
+        (d) => d['ds.name'] === dataset || d['ds.name'] === `/${dataset}`,
       );
 
       if (!currentDataset) {
         throw new Error(`Unknown dataset "${dataset}"`);
       }
 
-      const response = await fetch("/api/server", {
-        method: "POST",
+      const parsedQuery = parser.parse(query);
+
+      const body =
+        parsedQuery.type === 'query'
+          ? {
+              query,
+            }
+          : {
+              update: query,
+            };
+
+      const response = await fetch('/api/server', {
+        method: 'POST',
         headers: {
-          "X-TripleHost": host.endsWith("/") ? host.slice(0, -1) : host,
-          "X-TriplePath": currentDataset["ds.name"],
-          "Content-Type": "application/json",
+          'X-TripleHost': host.endsWith('/') ? host.slice(0, -1) : host,
+          'X-TriplePath': currentDataset['ds.name'],
+          'Content-Type': 'application/json',
           Authorization: `Basic ${credentials}`,
         },
-        body: JSON.stringify({
-          query,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
-        const content = (await response.json()) as QueryResponse;
-        return content;
+        if (parsedQuery.type === 'update') {
+          return {
+            type: 'update',
+            data: 'success',
+          };
+        }
+
+        if (parsedQuery.queryType === 'SELECT') {
+          const data = (await response.json()) as ReadResponse<T>['data'];
+          return {
+            type: 'read',
+            data,
+          };
+        } else if (parsedQuery.queryType === 'ASK') {
+          const data = (await response.json()).boolean as AskResponse['data'];
+          return {
+            type: 'ask',
+            data,
+          };
+        }
       }
 
       if (response.status === 401) {
-        throw new Error("Bad credentials");
+        throw new Error('Bad credentials');
       }
 
-      throw new Error("Unable to connect to host");
+      throw new Error('Unable to connect to host');
     },
-    [authData, attributes, dataset]
+    [auth, attributes, queryDataset],
   );
 
   return { getQuery };

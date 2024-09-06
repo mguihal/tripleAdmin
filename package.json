@@ -14,13 +14,13 @@
     "@codemirror/language": "^6.10.2",
     "@codemirror/legacy-modes": "^6.4.0",
     "@codemirror/lint": "^6.8.1",
-    "@types/sparqljs": "^3.1.11",
     "@uiw/react-codemirror": "^4.23.0",
     "antd": "^5.19.2",
     "body-parser": "^1.20.2",
     "express": "^4.19.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-resizable": "^3.0.5",
     "react-resizable-panels": "^2.0.22",
     "react-resize-detector": "^11.0.1",
     "sass": "^1.77.8",
@@ -30,6 +30,8 @@
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/react-resizable": "^3.0.8",
+    "@types/sparqljs": "^3.1.11",
     "@typescript-eslint/eslint-plugin": "^7.15.0",
     "@typescript-eslint/parser": "^7.15.0",
     "@vitejs/plugin-react": "^4.3.1",
@@ -37,11 +39,13 @@
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.7",
     "typescript": "^5.2.2",
-    "vite": "^5.3.4"
+    "vite": "^5.3.4",
+    "vite-plugin-checker": "^0.7.2"
   },
   "prettier": {
     "singleQuote": true,
     "trailingComma": "all",
     "printWidth": 120
-  }
+  },
+  "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72"
 }

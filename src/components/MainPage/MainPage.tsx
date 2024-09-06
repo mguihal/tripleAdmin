@@ -1,4 +1,3 @@
-import React from 'react';
 import { Layout } from 'antd';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import HeaderBar from '../HeaderBar/HeaderBar';

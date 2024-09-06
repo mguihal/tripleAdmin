@@ -1,0 +1,5 @@
+.list {
+  & :global(.ant-list-pagination) {
+    display: none;
+  }
+}

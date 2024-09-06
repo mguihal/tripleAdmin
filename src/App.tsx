@@ -1,6 +1,5 @@
 import AuthPage from './components/AuthPage/AuthPage';
 import './App.css';
-import useStorage from './hooks/useStorage';
 import useGetServer from './hooks/useGetServer';
 import { useEffect, useState } from 'react';
 import MainPage from './components/MainPage/MainPage';
@@ -12,12 +11,12 @@ import { ServerAttributes } from './state/useServer';
 
 const App = () => {
   const appState = useAppState();
-  const { state, actions } = appState;
+  const {
+    state: { server, auth },
+    actions,
+  } = appState;
 
   const { getServer } = useGetServer();
-  const { getAuthData } = useStorage();
-
-  const authData = getAuthData();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'notLogged' | 'logged'>('loading');
 
@@ -26,35 +25,36 @@ const App = () => {
       return;
     }
 
-    if (authData.host && authData.credentials) {
-      getServer(authData!.host, authData!.credentials)
+    const host = auth.getHost();
+    const credentials = auth.getCredentials();
+
+    if (host && credentials) {
+      getServer(host, credentials!)
         .then((response) => {
           setAuthStatus('logged');
-          actions.server.initialize(authData.host!, response);
+          actions.server.initialize(host, response);
         })
         .catch(() => setAuthStatus('notLogged'));
       return;
     }
 
     setAuthStatus('notLogged');
-  }, [authData, getServer, authStatus, actions.server]);
+  }, [auth, getServer, authStatus, actions.server]);
 
   const onLogged = (response: ServerAttributes) => {
     setAuthStatus('logged');
-    actions.server.initialize(authData.host!, response);
+    actions.server.initialize(auth.getHost()!, response);
   };
 
   return (
     <ConfigProvider theme={theme}>
-      <div className="App">
-        {authStatus === 'loading' && <div>Loading...</div>}
-        {authStatus === 'logged' && state.server.attributes && (
-          <AppStateContext.Provider value={appState}>
-            <MainPage />
-          </AppStateContext.Provider>
-        )}
-        {authStatus === 'notLogged' && <AuthPage onLogged={onLogged} />}
-      </div>
+      <AppStateContext.Provider value={appState}>
+        <div className="App">
+          {authStatus === 'loading' && <div>Loading...</div>}
+          {authStatus === 'logged' && server.attributes && <MainPage />}
+          {authStatus === 'notLogged' && <AuthPage onLogged={onLogged} />}
+        </div>
+      </AppStateContext.Provider>
     </ConfigProvider>
   );
 };

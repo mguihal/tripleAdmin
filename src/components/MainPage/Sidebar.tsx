@@ -1,25 +1,20 @@
-import React, {
-  useCallback,
-  useEffect,
-  useState,
-  Key,
-  useContext,
-} from "react";
-import { Divider, Layout, theme, Tree, TreeDataNode } from "antd";
+import { useCallback, useEffect, useState, Key } from 'react';
+import { Divider, Layout, theme, Tree, TreeDataNode } from 'antd';
 import {
   DatabaseOutlined,
   NodeIndexOutlined,
   UnorderedListOutlined,
   CodeOutlined,
-} from "@ant-design/icons";
-import { EventDataNode } from "antd/es/tree";
-import useGetGraphs from "../../hooks/useGetGraphs";
-import { AppStateContext } from "../../contexts/appStateContext";
+  SnippetsOutlined,
+} from '@ant-design/icons';
+import { EventDataNode } from 'antd/es/tree';
+import useGetGraphs from '../../hooks/useGetGraphs';
+import { useAppStateContext } from '../../hooks/useAppState';
 
 const { Sider } = Layout;
 
 type DBNavigatorNode = TreeDataNode & {
-  nodeType: "dataset" | "graph" | "triples" | "sparql";
+  nodeType: 'dataset' | 'graph' | 'triples' | 'sparql' | 'ontologies';
   url?: string;
 };
 
@@ -32,7 +27,6 @@ const Sidebar = () => {
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
 
-  const appState = useContext(AppStateContext);
   const {
     state: {
       server: { attributes },
@@ -41,7 +35,7 @@ const Sidebar = () => {
     actions: {
       navigation: { navigate },
     },
-  } = appState;
+  } = useAppStateContext();
 
   const { getGraphs } = useGetGraphs();
 
@@ -49,18 +43,16 @@ const Sidebar = () => {
   useEffect(() => {
     setTreeData(
       attributes?.datasets.map((dataset) => {
-        const name = dataset["ds.name"].startsWith("/")
-          ? dataset["ds.name"].slice(1)
-          : dataset["ds.name"];
+        const name = dataset['ds.name'].startsWith('/') ? dataset['ds.name'].slice(1) : dataset['ds.name'];
 
         return {
           title: name,
           key: name,
           icon: <DatabaseOutlined />,
           selectable: false,
-          nodeType: "dataset" as const,
+          nodeType: 'dataset' as const,
         };
-      }) || []
+      }) || [],
     );
   }, [attributes]);
 
@@ -69,12 +61,10 @@ const Sidebar = () => {
     if (!treeData) return;
 
     const dataset = treeData.find((n) => n.key === urlObject.dataset);
-    const graph = dataset?.children?.find(
-      (n) => n.key === `${urlObject.dataset}-${urlObject.graph}`
-    );
+    const graph = dataset?.children?.find((n) => n.key === `${urlObject.dataset}-${urlObject.graph}`);
 
     if (urlObject.dataset && !dataset) {
-      navigate("/");
+      navigate('/');
       return;
     }
 
@@ -83,17 +73,14 @@ const Sidebar = () => {
       return;
     }
 
-    if (urlObject.dataset) {
-      setExpandedKeys((e) => [...new Set([...e, `${urlObject.dataset}`])]);
-    }
-
-    if (urlObject.dataset && urlObject.graph) {
-      setExpandedKeys((e) => [
-        ...new Set([...e, `${urlObject.dataset}-${urlObject.graph}`]),
-      ]);
-      setSelectedKeys([`${urlObject.dataset}-${urlObject.graph}-triples`]);
+    if (!urlObject.dataset) {
+      setSelectedKeys([]);
     } else if (urlObject.dataset && !urlObject.graph) {
+      setExpandedKeys((e) => [...new Set([...e, `${urlObject.dataset}`])]);
       setSelectedKeys([`${urlObject.dataset}-sparql`]);
+    } else if (urlObject.dataset && urlObject.graph) {
+      setExpandedKeys((e) => [...new Set([...e, `${urlObject.dataset}`, `${urlObject.dataset}-${urlObject.graph}`])]);
+      setSelectedKeys([`${urlObject.dataset}-${urlObject.graph}-triples`]);
     }
   }, [treeData, urlObject, navigate]);
 
@@ -103,18 +90,25 @@ const Sidebar = () => {
       key: `${datasetKey}-${graphName}`,
       icon: <NodeIndexOutlined />,
       selectable: false,
-      nodeType: "graph",
+      nodeType: 'graph',
       children: [
         {
-          title: "Triples",
+          title: 'Triples',
           key: `${datasetKey}-${graphName}-triples`,
           icon: <UnorderedListOutlined />,
           isLeaf: true,
           selectable: true,
-          nodeType: "triples",
-          url: `${encodeURIComponent(datasetKey)}/${encodeURIComponent(
-            graphName
-          )}`,
+          nodeType: 'triples',
+          url: `${encodeURIComponent(datasetKey)}/${encodeURIComponent(graphName)}`,
+        },
+        {
+          title: 'Ontologies',
+          key: `${datasetKey}-${graphName}-ontologies`,
+          icon: <SnippetsOutlined />,
+          isLeaf: true,
+          selectable: true,
+          nodeType: 'ontologies',
+          url: `${encodeURIComponent(datasetKey)}/${encodeURIComponent(graphName)}`,
         },
       ],
     };
@@ -123,7 +117,7 @@ const Sidebar = () => {
   // Tree async fetching on expand
   const onLoadData = useCallback(
     (treeNode: EventDataNode<DBNavigatorNode>) => {
-      if (treeNode.nodeType === "dataset") {
+      if (treeNode.nodeType === 'dataset') {
         return getGraphs(`/${treeNode.key}`).then((graphs) => {
           setTreeData((oldTreeData) =>
             oldTreeData?.map((d) => {
@@ -131,47 +125,41 @@ const Sidebar = () => {
                 const nd = { ...d };
                 nd.children = [
                   {
-                    title: "SPARQL Request",
+                    title: 'SPARQL Request',
                     key: `${d.key}-sparql`,
                     icon: <CodeOutlined />,
                     isLeaf: true,
                     selectable: true,
-                    nodeType: "sparql",
+                    nodeType: 'sparql',
                     url: `${encodeURIComponent(`${d.key}`)}`,
                   },
-                  getGraphNode(`${d.key}`, "Default graph"),
+                  getGraphNode(`${d.key}`, 'Default graph'),
                   ...graphs.map((graph) => getGraphNode(`${d.key}`, graph)),
                 ] as DBNavigatorNode[];
                 return nd;
               } else {
                 return d;
               }
-            })
+            }),
           );
         });
       }
 
       return Promise.resolve();
     },
-    [getGraphs]
+    [getGraphs],
   );
 
-  const onExpand = useCallback(
-    (
-      keys: Key[],
-      { node, expanded }: { node: DBNavigatorNode; expanded: boolean }
-    ) => {
-      if (expanded) {
-        setExpandedKeys((e) => [...new Set([...e, node.key])]);
-      } else {
-        setExpandedKeys((e) => e.filter((i) => i !== node.key));
-      }
-    },
-    []
-  );
+  const onExpand = useCallback((_keys: Key[], { node, expanded }: { node: DBNavigatorNode; expanded: boolean }) => {
+    if (expanded) {
+      setExpandedKeys((e) => [...new Set([...e, node.key])]);
+    } else {
+      setExpandedKeys((e) => e.filter((i) => i !== node.key));
+    }
+  }, []);
 
   const onClick = useCallback(
-    (event: React.MouseEvent, node: DBNavigatorNode) => {
+    (_event: React.MouseEvent, node: DBNavigatorNode) => {
       if (node.isLeaf && node.selectable) {
         setSelectedKeys([node.key]);
         navigate(`/${node.url}`);
@@ -183,14 +171,11 @@ const Sidebar = () => {
         }
       }
     },
-    [expandedKeys, navigate]
+    [expandedKeys, navigate],
   );
 
   return (
-    <Sider
-      width={"100%"}
-      style={{ background: colorBgContainer, height: "100%" }}
-    >
+    <Sider width={'100%'} style={{ background: colorBgContainer, height: '100%' }}>
       <Divider>Datasets</Divider>
       <Tree.DirectoryTree
         showIcon

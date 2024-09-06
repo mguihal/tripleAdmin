@@ -17,6 +17,8 @@ app.use("/api/server", async (req, res) => {
   }
 
   try {
+    const body = new URLSearchParams(req.body);
+
     const response = await fetch(
       `${req.headers["x-triplehost"]}${req.headers["x-triplepath"]}`,
       {
@@ -26,7 +28,8 @@ app.use("/api/server", async (req, res) => {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         },
         ...(req.method === "POST" && {
-          body: `query=${encodeURIComponent(req.body.query)}`,
+          // body: `query=${encodeURIComponent(req.body.query)}`,
+          body: body.toString(),
         }),
       }
     );

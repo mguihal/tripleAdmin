@@ -1,19 +1,36 @@
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 
 const useStoredState = <T>(key: string, defaultValue: T) => {
-  let initialValue: T;
-
-  try {
-    initialValue = JSON.parse(localStorage.getItem(key) || "");
-  } catch (e) {
-    initialValue = defaultValue;
-  }
-
-  const [state, setState] = useState<T>(initialValue);
+  const [storedKey, setStoredKey] = useState(key);
+  const [initialValue] = useState<T>(defaultValue);
+  const [state, setState] = useState<T>(defaultValue);
 
   useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(state));
-  }, [key, state]);
+    let newValue: T;
+
+    try {
+      newValue = JSON.parse(localStorage.getItem(storedKey) || "");
+    } catch (e) {
+      newValue = initialValue;
+    }
+
+    setState(newValue);
+  }, [storedKey, initialValue]);
+
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ host: string }>
+      setStoredKey(`${key}-${btoa(customEvent.detail.host)}`);
+    }
+
+    document.addEventListener('serverInitialized', handler);
+    return () => document.removeEventListener('serverInitialized', handler);
+  }, [key]);
+
+  useEffect(() => {
+    localStorage.setItem(storedKey, JSON.stringify(state));
+  }, [storedKey, state]);
 
   return [state, setState] as [T, Dispatch<SetStateAction<T>>];
 };
