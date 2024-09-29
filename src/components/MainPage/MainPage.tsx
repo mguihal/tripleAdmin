@@ -5,6 +5,7 @@ import HomePage from '../HomePage/HomePage';
 import Sidebar from './Sidebar';
 import QueryPage from '../QueryPage/QueryPage';
 import { useAppStateContext } from '../../hooks/useAppState';
+import TriplesPage from '../TriplesPage/TriplesPage';
 
 const MainPage = () => {
   const {
@@ -15,6 +16,7 @@ const MainPage = () => {
 
   const isHomePage = !urlObject.dataset;
   const isQueryPage = urlObject.dataset && !urlObject.graph;
+  const isTriplesPage = urlObject.dataset && urlObject.graph;
 
   return (
     <Layout style={{ height: '100vh' }}>
@@ -28,6 +30,7 @@ const MainPage = () => {
           <Panel minSize={10} maxSize={90}>
             {isHomePage && <HomePage />}
             {isQueryPage && <QueryPage dataset={urlObject.dataset || ''} />}
+            {isTriplesPage && <TriplesPage dataset={urlObject.dataset || ''} />}
           </Panel>
         </PanelGroup>
       </Layout>

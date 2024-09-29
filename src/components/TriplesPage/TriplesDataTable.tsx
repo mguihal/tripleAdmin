@@ -1,10 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Flex, Input, Pagination, Segmented, Table, TableColumnsType, Typography } from 'antd';
-import { LinkOutlined, FontSizeOutlined, NodeIndexOutlined, TableOutlined } from '@ant-design/icons';
+import { Flex, Input, Pagination, Space, TableColumnsType, Tooltip, Typography } from 'antd';
+import { Table } from 'antd';
+import {
+  LinkOutlined,
+  FontSizeOutlined,
+  NodeIndexOutlined,
+  EditOutlined,
+  DeleteOutlined
+} from '@ant-design/icons';
 import { ReadResponse, Row } from '../../hooks/useQuery';
 import { useResizeDetector } from 'react-resize-detector';
-import classes from './DataTable.module.scss';
-import ResizableTitle from './ResizableTitle';
+import classes from '../DataTable/DataTable.module.scss';
+import ResizableTitle from '../DataTable/ResizableTitle';
 import { ResizeCallbackData } from 'react-resizable';
 import { ColumnType, TableProps } from 'antd/es/table';
 
@@ -26,7 +33,7 @@ type Props<T extends string> = {
 
 const COLUMN_DEFAULT_WIDTH = 400;
 
-const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
+const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
   const { height, ref } = useResizeDetector();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,7 +50,7 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
   const handleResize = useCallback(
     (index: number) =>
       (_: React.SyntheticEvent<Element>, { size }: ResizeCallbackData) => {
-        if (size.width > COLUMN_DEFAULT_WIDTH) {
+        if ((size.width > COLUMN_DEFAULT_WIDTH || (index === 0 && size.width > 60))) {
           const newColumns = [...dataColumns];
           newColumns[index] = {
             ...newColumns[index],
@@ -58,7 +65,7 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
   const mergedColumns = dataColumns.map<TableColumnsType<TableRow<T>>[number]>((col, index) => ({
     ...col,
     onHeaderCell: (column: TableColumnsType<TableRow<T>>[number]) => ({
-      resizable: index !== 0,
+      resizable: true,
       width: column.width,
       onResize: handleResize(index) as React.ReactEventHandler,
     }),
@@ -99,7 +106,7 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
                 </Flex>
               );
             },
-            width: COLUMN_DEFAULT_WIDTH, //xScroll ? 500 : undefined,
+            width: COLUMN_DEFAULT_WIDTH,
 
             // Sorting
             sortDirections: ['ascend', 'descend'],
@@ -137,6 +144,24 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
       ),
       {
         key: 'spacer',
+      },
+      {
+        key: 'actions',
+        fixed: 'right',
+        width: 100,
+        align: 'center',
+        render: (_, _record) => {
+          return (
+            <Space size={16}>
+              <Tooltip title="Edit row">
+                <EditOutlined />
+              </Tooltip>
+              <Tooltip title="Delete row">
+                <DeleteOutlined />
+              </Tooltip>
+            </Space>
+          )
+        }
       },
     ]);
   }, [filteredInfo, queryResult, sortedInfo.columnKey, sortedInfo.order]);
@@ -187,7 +212,6 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
   return (
     <Flex vertical justify="flex-start" style={{ height: '100%' }} ref={ref}>
       <Flex justify="flex-start" align="center" gap={8} style={{ height: 48, paddingLeft: 10, paddingRight: 10 }}>
-        <Segmented options={[{ value: 'table', icon: <TableOutlined />, label: 'Table' }]} />
         <div style={{ flex: 1 }} />
         <Input.Search
           allowClear
@@ -208,7 +232,7 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
         scroll={{
           y: (height || 0) - 55 - 48 - 48,
           // x: 'max-content',
-          // x: 1560
+          // x: 5000
         }}
         pagination={{
           hideOnSinglePage: false,
@@ -226,6 +250,18 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
           },
         }}
         onChange={handleChange}
+        rowSelection={{
+          type: 'checkbox',
+          fixed: true,
+          columnWidth: 40,
+          onChange: (selectedRowKeys: React.Key[], selectedRows: TableRow<T>[]) => {
+            console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
+          },
+          // getCheckboxProps: (record: TableRow<T>) => ({
+          //   disabled: record.name === 'Disabled User', // Column configuration not to be checked
+          //   name: record.name,
+          // }),
+        }}
       />
       <div style={{ flex: 1 }} />
       <Flex justify="space-between" align="center" style={{ height: 48, paddingLeft: 10, paddingRight: 10 }}>
@@ -251,4 +287,4 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
   );
 };
 
-export default DataTable;
+export default TriplesDataTable;

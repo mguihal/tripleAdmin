@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/lang-json": "^6.0.1",
     "@codemirror/language": "^6.10.2",
     "@codemirror/legacy-modes": "^6.4.0",
     "@codemirror/lint": "^6.8.1",
@@ -25,7 +26,7 @@
     "react-resize-detector": "^11.0.1",
     "sass": "^1.77.8",
     "sparqljs": "^3.7.2",
-    "vite-express": "^0.17.0"
+    "vite-express": "^0.19.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
@@ -40,7 +41,7 @@
     "eslint-plugin-react-refresh": "^0.4.7",
     "typescript": "^5.2.2",
     "vite": "^5.3.4",
-    "vite-plugin-checker": "^0.7.2"
+    "vite-plugin-checker": "^0.8.0"
   },
   "prettier": {
     "singleQuote": true,

@@ -26,6 +26,7 @@ app.use("/api/server", async (req, res) => {
         headers: {
           Authorization: req.headers.authorization,
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          Accept: req.headers.accept || undefined,
         },
         ...(req.method === "POST" && {
           // body: `query=${encodeURIComponent(req.body.query)}`,

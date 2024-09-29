@@ -30,6 +30,11 @@ type AskResponse = {
   data: boolean;
 };
 
+type ConstructResponse = {
+  type: 'construct';
+  data: {};
+};
+
 type UpdateResponse = {
   type: 'update';
   data: 'success';
@@ -39,7 +44,12 @@ type ErrorResponse = {
   type: 'error';
 };
 
-export type Response<T extends string> = ReadResponse<T> | AskResponse | UpdateResponse | ErrorResponse;
+export type Response<T extends string> =
+  | ReadResponse<T>
+  | AskResponse
+  | ConstructResponse
+  | UpdateResponse
+  | ErrorResponse;
 
 const useQuery = (queryDataset?: string) => {
   const {
@@ -84,6 +94,8 @@ const useQuery = (queryDataset?: string) => {
               update: query,
             };
 
+      const isConstructQuery = parsedQuery.type === 'query' && parsedQuery.queryType === 'CONSTRUCT';
+
       const response = await fetch('/api/server', {
         method: 'POST',
         headers: {
@@ -91,6 +103,7 @@ const useQuery = (queryDataset?: string) => {
           'X-TriplePath': currentDataset['ds.name'],
           'Content-Type': 'application/json',
           Authorization: `Basic ${credentials}`,
+          Accept: isConstructQuery ? 'application/ld+json' : '*/*',
         },
         body: JSON.stringify(body),
       });
@@ -113,6 +126,12 @@ const useQuery = (queryDataset?: string) => {
           const data = (await response.json()).boolean as AskResponse['data'];
           return {
             type: 'ask',
+            data,
+          };
+        } else if (parsedQuery.queryType === 'CONSTRUCT') {
+          const data = (await response.json()) as ConstructResponse['data'];
+          return {
+            type: 'construct',
             data,
           };
         }

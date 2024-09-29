@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Empty, Flex, Result } from 'antd';
+import CodeMirror from '@uiw/react-codemirror';
+import { json } from '@codemirror/lang-json';
 import useQuery, { Response } from '../../hooks/useQuery';
 import Editor from '../Editor/Editor';
 import { useAppStateContext } from '../../hooks/useAppState';
@@ -83,6 +85,21 @@ const QueryPage = ({ dataset }: Props) => {
             <Result
               status={queryResult.data ? 'success' : 'error'}
               title={queryResult.data ? 'Triples has been found' : 'No matching triples have been found'}
+            />
+          </Flex>
+        )}
+
+        {view === 'results' && queryResult?.type === 'construct' && (
+          <Flex vertical justify="flex-start" style={{ height: '100%' }}>
+            <CodeMirror
+              value={JSON.stringify(queryResult.data, null, 2)}
+              height={'100%'}
+              basicSetup={{
+                foldGutter: true,
+              }}
+              extensions={[json()]}
+              readOnly
+              style={{height: '100%'}}
             />
           </Flex>
         )}

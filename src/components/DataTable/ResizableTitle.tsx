@@ -7,12 +7,12 @@ const ResizableTitle = (
   props: React.HTMLAttributes<any> & {
     onResize: (e: React.SyntheticEvent<Element>, data: ResizeCallbackData) => void;
     width: number;
-    index: number;
+    resizable: boolean;
   },
 ) => {
-  const { onResize, width, index, ...restProps } = props;
+  const { onResize, width, resizable, ...restProps } = props;
 
-  if (!width || index === 0) {
+  if (!width || !resizable) {
     return <th {...restProps} />;
   }
 
