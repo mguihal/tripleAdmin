@@ -1,7 +1,7 @@
 import AuthPage from './components/AuthPage/AuthPage';
 import './App.css';
 import useGetServer from './hooks/useGetServer';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import MainPage from './components/MainPage/MainPage';
 import { ConfigProvider } from 'antd';
 import theme from './theme';
@@ -12,9 +12,16 @@ import { ServerAttributes } from './state/useServer';
 const App = () => {
   const appState = useAppState();
   const {
-    state: { server, auth },
+    state: {
+      server,
+      auth
+    },
     actions,
   } = appState;
+
+  const host = useMemo(() => auth.getHost(), [auth]);
+  const credentials = useMemo(() => auth.getCredentials(), [auth]);
+  const serverInitialize = useMemo(() => actions.server.initialize, [actions]);
 
   const { getServer } = useGetServer();
 
@@ -25,25 +32,22 @@ const App = () => {
       return;
     }
 
-    const host = auth.getHost();
-    const credentials = auth.getCredentials();
-
     if (host && credentials) {
       getServer(host, credentials!)
         .then((response) => {
           setAuthStatus('logged');
-          actions.server.initialize(host, response);
+          serverInitialize(host, response);
         })
         .catch(() => setAuthStatus('notLogged'));
       return;
     }
 
     setAuthStatus('notLogged');
-  }, [auth, getServer, authStatus, actions.server]);
+  }, [authStatus, getServer, host, credentials, serverInitialize]);
 
   const onLogged = (response: ServerAttributes) => {
     setAuthStatus('logged');
-    actions.server.initialize(auth.getHost()!, response);
+    serverInitialize(auth.getHost()!, response);
   };
 
   return (

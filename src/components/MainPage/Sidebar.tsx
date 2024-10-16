@@ -86,7 +86,7 @@ const Sidebar = () => {
 
   const getGraphNode = (datasetKey: string, graphName: string) => {
     return {
-      title: graphName,
+      title: graphName === 'default' ? 'Default graph' : graphName,
       key: `${datasetKey}-${graphName}`,
       icon: <NodeIndexOutlined />,
       selectable: false,
@@ -133,7 +133,7 @@ const Sidebar = () => {
                     nodeType: 'sparql',
                     url: `${encodeURIComponent(`${d.key}`)}`,
                   },
-                  getGraphNode(`${d.key}`, 'Default graph'),
+                  getGraphNode(`${d.key}`, 'default'),
                   ...graphs.map((graph) => getGraphNode(`${d.key}`, graph)),
                 ] as DBNavigatorNode[];
                 return nd;

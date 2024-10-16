@@ -17,7 +17,6 @@ const useStoredState = <T>(key: string, defaultValue: T) => {
     setState(newValue);
   }, [storedKey, initialValue]);
 
-
   useEffect(() => {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent<{ host: string }>

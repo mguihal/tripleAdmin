@@ -30,7 +30,7 @@ const MainPage = () => {
           <Panel minSize={10} maxSize={90}>
             {isHomePage && <HomePage />}
             {isQueryPage && <QueryPage dataset={urlObject.dataset || ''} />}
-            {isTriplesPage && <TriplesPage dataset={urlObject.dataset || ''} />}
+            {isTriplesPage && <TriplesPage dataset={urlObject.dataset || ''} graph={urlObject.graph || ''} />}
           </Panel>
         </PanelGroup>
       </Layout>

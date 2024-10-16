@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Parser } from 'sparqljs';
 import { useAppStateContext } from './useAppState';
 
@@ -59,12 +59,14 @@ const useQuery = (queryDataset?: string) => {
     },
   } = useAppStateContext();
 
+  const host = useMemo(() => auth.getHost(), [auth]);
+  const credentials = useMemo(() => auth.getCredentials(), [auth]);
+  const datasets = useMemo(() => attributes?.datasets, [attributes]);
+
   const getQuery = useCallback(
     async <T extends string>(query: string, dataset: string | undefined = queryDataset): Promise<Response<T>> => {
-      const host = auth.getHost();
-      const credentials = auth.getCredentials();
 
-      if (!host || !credentials || !attributes) {
+      if (!host || !credentials || !datasets) {
         location.reload();
         return {
           type: 'error',
@@ -75,7 +77,7 @@ const useQuery = (queryDataset?: string) => {
         throw new Error('No dataset provided to query');
       }
 
-      const currentDataset = attributes.datasets.find(
+      const currentDataset = datasets.find(
         (d) => d['ds.name'] === dataset || d['ds.name'] === `/${dataset}`,
       );
 
@@ -143,7 +145,7 @@ const useQuery = (queryDataset?: string) => {
 
       throw new Error('Unable to connect to host');
     },
-    [auth, attributes, queryDataset],
+    [queryDataset, host, credentials, datasets],
   );
 
   return { getQuery };

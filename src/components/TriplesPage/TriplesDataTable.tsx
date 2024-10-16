@@ -1,13 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Flex, Input, Pagination, Space, TableColumnsType, Tooltip, Typography } from 'antd';
 import { Table } from 'antd';
-import {
-  LinkOutlined,
-  FontSizeOutlined,
-  NodeIndexOutlined,
-  EditOutlined,
-  DeleteOutlined
-} from '@ant-design/icons';
+import { LinkOutlined, FontSizeOutlined, NodeIndexOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { ReadResponse, Row } from '../../hooks/useQuery';
 import { useResizeDetector } from 'react-resize-detector';
 import classes from '../DataTable/DataTable.module.scss';
@@ -29,15 +23,26 @@ type Sorts<T extends string> = GetSingle<Parameters<OnChange<T>>[2]>;
 type Props<T extends string> = {
   queryResult: ReadResponse<T>;
   queryTime: number;
+  totalRows: number | undefined;
+  loading: boolean;
+  defaultPageSize: number;
+  onChange: (pagination: Parameters<OnChange<T>>[0], filters: Filters<T>, sorter: Sorts<T>, searchText: string) => void;
 };
 
 const COLUMN_DEFAULT_WIDTH = 400;
 
-const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
+const TriplesDataTable = <T extends string>({
+  queryResult,
+  queryTime,
+  totalRows,
+  loading,
+  defaultPageSize,
+  onChange,
+}: Props<T>) => {
   const { height, ref } = useResizeDetector();
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
 
   const [dataColumns, setDataColumns] = useState<TableColumnsType<TableRow<T>>>([]);
 
@@ -50,7 +55,7 @@ const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>
   const handleResize = useCallback(
     (index: number) =>
       (_: React.SyntheticEvent<Element>, { size }: ResizeCallbackData) => {
-        if ((size.width > COLUMN_DEFAULT_WIDTH || (index === 0 && size.width > 60))) {
+        if (size.width > COLUMN_DEFAULT_WIDTH || (index === 0 && size.width > 60)) {
           const newColumns = [...dataColumns];
           newColumns[index] = {
             ...newColumns[index],
@@ -110,18 +115,12 @@ const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>
 
             // Sorting
             sortDirections: ['ascend', 'descend'],
-            sorter: (a, b) => {
-              if (a[column]!.value === b[column]!.value) return 0;
-              else if (a[column]!.value < b[column]!.value) return -1;
-              else return 1;
-            },
+            sorter: true,
             sortOrder: sortedInfo.columnKey === column ? sortedInfo.order : null,
 
             // Filtering
             filteredValue: filteredInfo[column] || null,
-            onFilter: (value, record) => {
-              return record[column]?.value?.toString().toLowerCase().includes(value.toString().toLowerCase());
-            },
+            onFilter: () => true,
             filters: [],
             filterDropdown: ({ setSelectedKeys, selectedKeys, confirm }) => (
               <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
@@ -160,8 +159,8 @@ const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>
                 <DeleteOutlined />
               </Tooltip>
             </Space>
-          )
-        }
+          );
+        },
       },
     ]);
   }, [filteredInfo, queryResult, sortedInfo.columnKey, sortedInfo.order]);
@@ -171,42 +170,28 @@ const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>
       ? queryResult.data.results.bindings.map((row, i) => ({
           ...row,
           key: `${i}`,
-          __id: i + 1,
+          __id: i + 1 + (currentPage - 1) * pageSize,
         }))
       : [];
-  }, [queryResult]);
+  }, [currentPage, pageSize, queryResult]);
 
   useEffect(() => {
     setFilteredDataSource(dataSource);
   }, [dataSource]);
 
-  // Reset on new results
-  useEffect(() => {
-    setSearchText('');
-    setFilteredInfo({});
-    setSortedInfo({});
-  }, [queryResult]);
-
   const handleSearch = useCallback(
     (searchValue: string) => {
-      setFilteredDataSource(
-        dataSource.filter((r) => {
-          if (searchValue === '') {
-            return true;
-          }
-
-          return queryResult.data.head.vars.some((c) => {
-            return r[c]?.value.toString().toLowerCase().includes(searchValue.toLowerCase());
-          });
-        }),
-      );
+      setCurrentPage(1);
+      onChange({ current: 1, pageSize }, filteredInfo, sortedInfo, searchValue.toLowerCase());
     },
-    [dataSource, queryResult.data.head.vars],
+    [filteredInfo, onChange, pageSize, sortedInfo],
   );
 
   const handleChange: OnChange<T> = (_pagination, filters, sorter) => {
     setFilteredInfo(filters);
     setSortedInfo(sorter as Sorts<T>);
+    setCurrentPage(1);
+    onChange({ current: 1, pageSize }, filters, sorter as Sorts<T>, searchText.toLowerCase());
   };
 
   return (
@@ -225,6 +210,7 @@ const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>
       <Table
         bordered
         virtual
+        loading={loading}
         className={classes.table}
         // tableLayout="auto"
         dataSource={filteredDataSource}
@@ -267,10 +253,8 @@ const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>
       <Flex justify="space-between" align="center" style={{ height: 48, paddingLeft: 10, paddingRight: 10 }}>
         <div>{queryTime}ms</div>
         <div>
-          {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredDataSource.length)} of{' '}
-          {filteredDataSource.length} {`${filteredDataSource.length > 1 ? 'rows' : 'row'}`}
-          {filteredDataSource.length < dataSource.length &&
-            ` (filtered on ${dataSource.length} ${dataSource.length > 1 ? 'rows' : 'row'})`}
+          {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalRows || 0)} of{' '}
+          {totalRows ?? 'a unknown number of'} {`${totalRows !== 1 ? 'rows' : 'row'}`}
         </div>
         <Pagination
           showSizeChanger
@@ -279,8 +263,9 @@ const TriplesDataTable = <T extends string>({ queryResult, queryTime }: Props<T>
           onChange={(page, size) => {
             setCurrentPage(page);
             setPageSize(size);
+            onChange({ current: page, pageSize: size }, filteredInfo, sortedInfo, searchText);
           }}
-          total={filteredDataSource.length}
+          total={totalRows}
         />
       </Flex>
     </Flex>
