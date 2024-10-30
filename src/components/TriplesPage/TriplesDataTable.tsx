@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Flex, Input, Pagination, Space, TableColumnsType, Tooltip, Typography } from 'antd';
+import { Button, Flex, Input, Pagination, Space, TableColumnsType, Tooltip, Typography } from 'antd';
 import { Table } from 'antd';
-import { LinkOutlined, FontSizeOutlined, NodeIndexOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { LinkOutlined, FontSizeOutlined, NodeIndexOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { ReadResponse, Row } from '../../hooks/useQuery';
 import { useResizeDetector } from 'react-resize-detector';
 import classes from '../DataTable/DataTable.module.scss';
@@ -9,7 +9,7 @@ import ResizableTitle from '../DataTable/ResizableTitle';
 import { ResizeCallbackData } from 'react-resizable';
 import { ColumnType, TableProps } from 'antd/es/table';
 
-type TableRow<T extends string> = Row<T> & {
+export type TableRow<T extends string> = Row<T> & {
   key: string;
   __id: number;
 };
@@ -27,6 +27,7 @@ type Props<T extends string> = {
   loading: boolean;
   defaultPageSize: number;
   onChange: (pagination: Parameters<OnChange<T>>[0], filters: Filters<T>, sorter: Sorts<T>, searchText: string) => void;
+  onAddClick: () => void;
 };
 
 const COLUMN_DEFAULT_WIDTH = 400;
@@ -38,6 +39,7 @@ const TriplesDataTable = <T extends string>({
   loading,
   defaultPageSize,
   onChange,
+  onAddClick,
 }: Props<T>) => {
   const { height, ref } = useResizeDetector();
 
@@ -197,6 +199,9 @@ const TriplesDataTable = <T extends string>({
   return (
     <Flex vertical justify="flex-start" style={{ height: '100%' }} ref={ref}>
       <Flex justify="flex-start" align="center" gap={8} style={{ height: 48, paddingLeft: 10, paddingRight: 10 }}>
+        <Button icon={<PlusOutlined />} onClick={() => onAddClick()}>
+          Add new triples
+        </Button>
         <div style={{ flex: 1 }} />
         <Input.Search
           allowClear

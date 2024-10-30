@@ -1,18 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useQuery, { Response } from '../../hooks/useQuery';
-import { Flex, Result } from 'antd';
-import TriplesDataTable from './TriplesDataTable';
-import { FilterValue, SortOrder } from 'antd/es/table/interface';
+import { Flex, message, Result } from 'antd';
+import TriplesDataTable, { TableRow } from './TriplesDataTable';
+import { FilterValue, SorterResult, SortOrder, TablePaginationConfig } from 'antd/es/table/interface';
+import AddTriplesModal from './AddTriplesModal';
+import { useAppStateContext } from '../../hooks/useAppState';
+
+type PaginationFilterState = {
+  pagination: TablePaginationConfig;
+  filters: Record<string, FilterValue | null>;
+  sorter: SorterResult<TableRow<string>>;
+  searchText: string;
+};
 
 const DEFAULT_PAGESIZE = 50;
 
-type Props = {
-  dataset: string;
-  graph: string;
-};
-
-const TriplesPage = ({ dataset, graph }: Props) => {
-  const { getQuery } = useQuery(dataset);
+const TriplesPage = () => {
+  const {
+    state: {
+      navigation: { urlObject },
+    },
+  } = useAppStateContext();
+  const { getQuery } = useQuery(urlObject.dataset || '');
 
   const [pendingDataQuery, setPendingDataQuery] = useState(false);
   const [pendingCountQuery, setPendingCountQuery] = useState(false);
@@ -20,10 +29,16 @@ const TriplesPage = ({ dataset, graph }: Props) => {
   const [queryTime, setQueryTime] = useState(0);
   const [totalRows, setTotalRows] = useState<number>();
 
+  const [paginationFilterState, setPaginationFilterState] = useState<PaginationFilterState>();
+  const previousPaginationFilterState = useRef<PaginationFilterState>();
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [messageApi, contextHolder] = message.useMessage();
+
   const getTotalRows = useCallback(
     (filters: Record<string, FilterValue | null>, searchText: string) => {
       setPendingCountQuery(true);
-
+      const graph = urlObject.graph || '';
       const query = `
     SELECT (count(*) as ?count)
     WHERE { ${graph === 'default' ? '' : `GRAPH <${graph}>`} {
@@ -50,7 +65,7 @@ const TriplesPage = ({ dataset, graph }: Props) => {
           setPendingCountQuery(false);
         });
     },
-    [getQuery, graph],
+    [getQuery, urlObject.graph],
   );
 
   const fetchData = useCallback(
@@ -64,7 +79,7 @@ const TriplesPage = ({ dataset, graph }: Props) => {
     ) => {
       setPendingDataQuery(true);
       const startTime = Date.now();
-
+      const graph = urlObject.graph || '';
       const query = `
       SELECT ?subject ?predicate ?object
 
@@ -100,7 +115,7 @@ const TriplesPage = ({ dataset, graph }: Props) => {
           console.log('ERR', error);
         });
     },
-    [getQuery, graph],
+    [getQuery, urlObject.graph],
   );
 
   useEffect(() => {
@@ -108,8 +123,33 @@ const TriplesPage = ({ dataset, graph }: Props) => {
     fetchData(DEFAULT_PAGESIZE, 0, undefined, undefined, {}, '');
   }, [getTotalRows, fetchData]);
 
+  useEffect(() => {
+    if (paginationFilterState) {
+      if (
+        previousPaginationFilterState.current && (
+          (previousPaginationFilterState.current.searchText !== paginationFilterState?.searchText) ||
+          ((previousPaginationFilterState.current.filters.subject || []).join(';') !== (paginationFilterState?.filters.subject || []).join(';')) ||
+          ((previousPaginationFilterState.current.filters.predicate || []).join(';') !== (paginationFilterState?.filters.predicate || []).join(';')) ||
+          ((previousPaginationFilterState.current.filters.object || []).join(';') !== (paginationFilterState?.filters.object || []).join(';'))
+        )
+      ) {
+        getTotalRows(paginationFilterState.filters, paginationFilterState.searchText);
+      }
+
+      fetchData(
+        paginationFilterState.pagination.pageSize || DEFAULT_PAGESIZE,
+        (paginationFilterState.pagination.pageSize || DEFAULT_PAGESIZE) * ((paginationFilterState.pagination.current || 1) - 1),
+        (paginationFilterState.sorter.columnKey as string) || undefined,
+        paginationFilterState.sorter.order,
+        paginationFilterState.filters,
+        paginationFilterState.searchText,
+      );
+    }
+  }, [fetchData, getTotalRows, paginationFilterState]);
+
   return (
     <>
+      {contextHolder}
       {queryResult && queryResult.type === 'read' && (
         <TriplesDataTable
           queryResult={queryResult}
@@ -118,16 +158,11 @@ const TriplesPage = ({ dataset, graph }: Props) => {
           defaultPageSize={DEFAULT_PAGESIZE}
           loading={pendingDataQuery || pendingCountQuery}
           onChange={(pagination, filters, sorter, searchText) => {
-            console.log('MAX table change', pagination, filters, sorter);
-            getTotalRows(filters, searchText);
-            fetchData(
-              pagination.pageSize || DEFAULT_PAGESIZE,
-              (pagination.pageSize || DEFAULT_PAGESIZE) * ((pagination.current || 1) - 1),
-              (sorter.columnKey as string) || undefined,
-              sorter.order,
-              filters,
-              searchText,
-            );
+            previousPaginationFilterState.current = paginationFilterState;
+            setPaginationFilterState({ pagination, filters, sorter, searchText });
+          }}
+          onAddClick={() => {
+            setIsAddModalOpen(true);
           }}
         />
       )}
@@ -137,6 +172,29 @@ const TriplesPage = ({ dataset, graph }: Props) => {
           <Result status="error" title="An error occurred during query execution" />
         </Flex>
       )}
+
+      <AddTriplesModal
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdded={() => {
+          setIsAddModalOpen(false);
+          getTotalRows(paginationFilterState?.filters || {}, paginationFilterState?.searchText || '');
+          fetchData(
+            paginationFilterState?.pagination.pageSize || DEFAULT_PAGESIZE,
+            (paginationFilterState?.pagination.pageSize || DEFAULT_PAGESIZE) *
+              ((paginationFilterState?.pagination.current || 1) - 1),
+            (paginationFilterState?.sorter.columnKey as string) || undefined,
+            paginationFilterState?.sorter.order,
+            paginationFilterState?.filters || {},
+            paginationFilterState?.searchText || '',
+          );
+
+          messageApi.open({
+            type: 'success',
+            content: 'New triples have been added successfully',
+          });
+        }}
+      />
     </>
   );
 };
