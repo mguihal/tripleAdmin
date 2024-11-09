@@ -1,13 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Flex, Input, Pagination, Space, TableColumnsType, Tooltip, Typography } from 'antd';
+import { Button, Flex, Input, Modal, Pagination, Space, TableColumnsType, Tooltip, Typography } from 'antd';
 import { Table } from 'antd';
-import { LinkOutlined, FontSizeOutlined, NodeIndexOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { ReadResponse, Row } from '../../hooks/useQuery';
+import {
+  LinkOutlined,
+  FontSizeOutlined,
+  NodeIndexOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
+import useQuery, { ReadResponse, Row } from '../../hooks/useQuery';
 import { useResizeDetector } from 'react-resize-detector';
 import classes from '../DataTable/DataTable.module.scss';
 import ResizableTitle from '../DataTable/ResizableTitle';
 import { ResizeCallbackData } from 'react-resizable';
 import { ColumnType, TableProps } from 'antd/es/table';
+import { useAppStateContext } from '../../hooks/useAppState';
+
+type T = 'subject' | 'predicate' | 'object';
 
 export type TableRow<T extends string> = Row<T> & {
   key: string;
@@ -28,11 +38,12 @@ type Props<T extends string> = {
   defaultPageSize: number;
   onChange: (pagination: Parameters<OnChange<T>>[0], filters: Filters<T>, sorter: Sorts<T>, searchText: string) => void;
   onAddClick: () => void;
+  onDelete: (nbRows: number, success: boolean) => void;
 };
 
 const COLUMN_DEFAULT_WIDTH = 400;
 
-const TriplesDataTable = <T extends string>({
+const TriplesDataTable = ({
   queryResult,
   queryTime,
   totalRows,
@@ -40,6 +51,7 @@ const TriplesDataTable = <T extends string>({
   defaultPageSize,
   onChange,
   onAddClick,
+  onDelete,
 }: Props<T>) => {
   const { height, ref } = useResizeDetector();
 
@@ -54,6 +66,15 @@ const TriplesDataTable = <T extends string>({
   const [filteredInfo, setFilteredInfo] = useState<Filters<T>>({});
   const [sortedInfo, setSortedInfo] = useState<Sorts<T>>({});
 
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+  const {
+    state: {
+      navigation: { urlObject },
+    },
+  } = useAppStateContext();
+  const { getQuery } = useQuery(urlObject.dataset || '');
+
   const handleResize = useCallback(
     (index: number) =>
       (_: React.SyntheticEvent<Element>, { size }: ResizeCallbackData) => {
@@ -67,6 +88,82 @@ const TriplesDataTable = <T extends string>({
         }
       },
     [dataColumns],
+  );
+
+  const buildDeleteQuery = useCallback((records: TableRow<T>[]) => {
+
+    const formatRow = (record: TableRow<T>) => {
+      const subject = record.subject?.type === 'uri' ? `<${record.subject?.value}>` : `"${record.subject?.value}"`;
+      const predicate =
+        record.predicate?.type === 'uri' ? `<${record.predicate?.value}>` : `"${record.predicate?.value}"`;
+      const object = record.object?.type === 'uri' ? `<${record.object?.value}>` : `"${record.object?.value}"`;
+
+      return `${subject} ${predicate} ${object}`;
+    }
+
+    const graph = urlObject.graph || '';
+
+    return `DELETE DATA {${graph === 'default' ? '' : `\n  GRAPH <${graph}> {`}
+${records.map(record => `${graph === 'default' ? '  ' : '    '}${formatRow(record)} .`).join('\n')}
+${graph === 'default' ? '' : `  }\n`}}`;
+  }, [urlObject.graph]);
+
+  const handleDeleteRow = useCallback(
+    (record: TableRow<T>) => {
+      Modal.confirm({
+        title: 'Delete this row',
+        content: (
+          <div>
+            Are you sure to execute this query?
+            <pre style={{ overflow: 'auto' }}>{buildDeleteQuery([record])}</pre>
+          </div>
+        ),
+        okText: 'Delete',
+        okType: 'danger',
+        width: 1000,
+        onOk: () => {
+          getQuery(buildDeleteQuery([record]))
+          .then(() => {
+            setSelectedRowKeys([]);
+            onDelete(1, true);
+          })
+          .catch(() => {
+            onDelete(1, false);
+          });
+        }
+      });
+    },
+    [buildDeleteQuery, getQuery, onDelete],
+  );
+
+  const handleDeleteMultipleRows = useCallback(
+    () => {
+      const records = filteredDataSource.filter((_, i) => selectedRowKeys.includes(`${i}`));
+
+      Modal.confirm({
+        title: `Delete these ${records.length} rows`,
+        content: (
+          <div>
+            Are you sure to execute this query?
+            <pre style={{ overflow: 'auto' }}>{buildDeleteQuery(records)}</pre>
+          </div>
+        ),
+        okText: 'Delete',
+        okType: 'danger',
+        width: 1000,
+        onOk: () => {
+          getQuery(buildDeleteQuery(records))
+          .then(() => {
+            setSelectedRowKeys([]);
+            onDelete(records.length, true);
+          })
+          .catch(() => {
+            onDelete(records.length, false);
+          });
+        }
+      });
+    },
+    [buildDeleteQuery, getQuery, onDelete, selectedRowKeys, filteredDataSource],
   );
 
   const mergedColumns = dataColumns.map<TableColumnsType<TableRow<T>>[number]>((col, index) => ({
@@ -104,7 +201,7 @@ const TriplesDataTable = <T extends string>({
                   </>
                   <Typography.Paragraph
                     style={{ margin: 0, wordBreak: 'break-all' }}
-                    ellipsis={{ rows: 3, expandable: true, symbol: 'more' }}
+                    // ellipsis={{ rows: 3, expandable: 'collapsible', symbol: 'more' }}
                   >
                     {data?.type === 'uri' && <span style={{ color: 'rgb(4 127 209)' }}>{`<${data?.value}>`}</span>}
                     {data?.type === 'literal' && data?.value}
@@ -151,21 +248,27 @@ const TriplesDataTable = <T extends string>({
         fixed: 'right',
         width: 100,
         align: 'center',
-        render: (_, _record) => {
+        render: (_, record) => {
           return (
-            <Space size={16}>
+            <Space size={8}>
               <Tooltip title="Edit row">
-                <EditOutlined />
+                <Button shape="circle" icon={<EditOutlined />} size="small" />
               </Tooltip>
               <Tooltip title="Delete row">
-                <DeleteOutlined />
+                <Button
+                  shape="circle"
+                  icon={<DeleteOutlined />}
+                  size="small"
+                  danger
+                  onClick={() => handleDeleteRow(record)}
+                />
               </Tooltip>
             </Space>
           );
         },
       },
     ]);
-  }, [filteredInfo, queryResult, sortedInfo.columnKey, sortedInfo.order]);
+  }, [filteredInfo, handleDeleteRow, queryResult, sortedInfo.columnKey, sortedInfo.order]);
 
   const dataSource: TableRow<T>[] = useMemo(() => {
     return queryResult
@@ -184,6 +287,7 @@ const TriplesDataTable = <T extends string>({
   const handleSearch = useCallback(
     (searchValue: string) => {
       setCurrentPage(1);
+      setSelectedRowKeys([]);
       onChange({ current: 1, pageSize }, filteredInfo, sortedInfo, searchValue.toLowerCase());
     },
     [filteredInfo, onChange, pageSize, sortedInfo],
@@ -193,12 +297,18 @@ const TriplesDataTable = <T extends string>({
     setFilteredInfo(filters);
     setSortedInfo(sorter as Sorts<T>);
     setCurrentPage(1);
+    setSelectedRowKeys([]);
     onChange({ current: 1, pageSize }, filters, sorter as Sorts<T>, searchText.toLowerCase());
   };
 
   return (
     <Flex vertical justify="flex-start" style={{ height: '100%' }} ref={ref}>
       <Flex justify="flex-start" align="center" gap={8} style={{ height: 48, paddingLeft: 10, paddingRight: 10 }}>
+        {selectedRowKeys.length > 0 && (
+          <Button icon={<DeleteOutlined />} onClick={() => handleDeleteMultipleRows()} danger>
+            Delete {selectedRowKeys.length} selected triples
+          </Button>
+        )}
         <Button icon={<PlusOutlined />} onClick={() => onAddClick()}>
           Add new triples
         </Button>
@@ -245,13 +355,11 @@ const TriplesDataTable = <T extends string>({
           type: 'checkbox',
           fixed: true,
           columnWidth: 40,
-          onChange: (selectedRowKeys: React.Key[], selectedRows: TableRow<T>[]) => {
-            console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
+          preserveSelectedRowKeys: false,
+          onChange: (newSelectedRowKeys: React.Key[]) => {
+            setSelectedRowKeys(newSelectedRowKeys);
           },
-          // getCheckboxProps: (record: TableRow<T>) => ({
-          //   disabled: record.name === 'Disabled User', // Column configuration not to be checked
-          //   name: record.name,
-          // }),
+          selectedRowKeys,
         }}
       />
       <div style={{ flex: 1 }} />
@@ -268,6 +376,7 @@ const TriplesDataTable = <T extends string>({
           onChange={(page, size) => {
             setCurrentPage(page);
             setPageSize(size);
+            setSelectedRowKeys([]);
             onChange({ current: page, pageSize: size }, filteredInfo, sortedInfo, searchText);
           }}
           total={totalRows}

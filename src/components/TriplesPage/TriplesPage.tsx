@@ -9,7 +9,7 @@ import { useAppStateContext } from '../../hooks/useAppState';
 type PaginationFilterState = {
   pagination: TablePaginationConfig;
   filters: Record<string, FilterValue | null>;
-  sorter: SorterResult<TableRow<string>>;
+  sorter: SorterResult<TableRow<'subject' | 'predicate' | 'object'>>;
   searchText: string;
 };
 
@@ -25,7 +25,7 @@ const TriplesPage = () => {
 
   const [pendingDataQuery, setPendingDataQuery] = useState(false);
   const [pendingCountQuery, setPendingCountQuery] = useState(false);
-  const [queryResult, setQueryResult] = useState<Response<string>>();
+  const [queryResult, setQueryResult] = useState<Response<'subject' | 'predicate' | 'object'>>();
   const [queryTime, setQueryTime] = useState(0);
   const [totalRows, setTotalRows] = useState<number>();
 
@@ -100,7 +100,7 @@ const TriplesPage = () => {
       LIMIT ${limit} OFFSET ${offset}
       `;
 
-      getQuery(query)
+      getQuery<'subject' | 'predicate' | 'object'>(query)
         .then((response) => {
           setPendingDataQuery(false);
           const endTime = Date.now();
@@ -163,6 +163,22 @@ const TriplesPage = () => {
           }}
           onAddClick={() => {
             setIsAddModalOpen(true);
+          }}
+          onDelete={(nbRows, success) => {
+            getTotalRows(paginationFilterState?.filters || {}, paginationFilterState?.searchText || '');
+            fetchData(
+              paginationFilterState?.pagination.pageSize || DEFAULT_PAGESIZE,
+              (paginationFilterState?.pagination.pageSize || DEFAULT_PAGESIZE) *
+                ((paginationFilterState?.pagination.current || 1) - 1),
+              (paginationFilterState?.sorter.columnKey as string) || undefined,
+              paginationFilterState?.sorter.order,
+              paginationFilterState?.filters || {},
+              paginationFilterState?.searchText || '',
+            );
+            messageApi.open({
+              type: success ? 'success' : 'error',
+              content: success ? `${nbRows} triple have been deleted successfully` : 'An error occurred during deletion',
+            });
           }}
         />
       )}
