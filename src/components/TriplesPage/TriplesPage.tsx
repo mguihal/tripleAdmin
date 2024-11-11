@@ -180,6 +180,21 @@ const TriplesPage = () => {
               content: success ? `${nbRows} triple have been deleted successfully` : 'An error occurred during deletion',
             });
           }}
+          onEdit={(success) => {
+            fetchData(
+              paginationFilterState?.pagination.pageSize || DEFAULT_PAGESIZE,
+              (paginationFilterState?.pagination.pageSize || DEFAULT_PAGESIZE) *
+                ((paginationFilterState?.pagination.current || 1) - 1),
+              (paginationFilterState?.sorter.columnKey as string) || undefined,
+              paginationFilterState?.sorter.order,
+              paginationFilterState?.filters || {},
+              paginationFilterState?.searchText || '',
+            );
+            messageApi.open({
+              type: success ? 'success' : 'error',
+              content: success ? `Triple updated successfully` : 'An error occurred during update',
+            });
+          }}
         />
       )}
 
