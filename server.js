@@ -11,7 +11,7 @@ if (process.env.NODE_ENV === "production") {
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.use("/api/server", async (req, res) => {
+app.use('/api/server', async (req, res) => {
   if (!req.headers["x-triplehost"] || !req.headers["x-triplepath"]) {
     return res.sendStatus(400);
   }
@@ -47,6 +47,23 @@ app.use("/api/server", async (req, res) => {
     const content = await response.text();
     return res.send(content);
   } catch (e) {
+    return res.sendStatus(500);
+  }
+});
+
+app.use('/api/lastVersion', async (req, res) => {
+  try {
+    const response = await fetch('https://github.com/mguihal/tripleAdmin/releases/latest');
+
+    if (response.ok) {
+      const urlParts = response.url.split('/tag/');
+      if (urlParts.length === 2) {
+        return res.send(urlParts[1]);
+      }
+    }
+    return res.sendStatus(500);
+  } catch (err) {
+    console.error(err);
     return res.sendStatus(500);
   }
 });

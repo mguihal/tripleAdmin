@@ -5,7 +5,7 @@ import {
   NodeIndexOutlined,
   UnorderedListOutlined,
   CodeOutlined,
-  SnippetsOutlined,
+  // SnippetsOutlined,
 } from '@ant-design/icons';
 import { EventDataNode } from 'antd/es/tree';
 import useGetGraphs from '../../hooks/useGetGraphs';
@@ -101,15 +101,15 @@ const Sidebar = () => {
           nodeType: 'triples',
           url: `${encodeURIComponent(datasetKey)}/${encodeURIComponent(graphName)}`,
         },
-        {
-          title: 'Ontologies',
-          key: `${datasetKey}-${graphName}-ontologies`,
-          icon: <SnippetsOutlined />,
-          isLeaf: true,
-          selectable: true,
-          nodeType: 'ontologies',
-          url: `${encodeURIComponent(datasetKey)}/${encodeURIComponent(graphName)}`,
-        },
+        // {
+        //   title: 'Ontologies',
+        //   key: `${datasetKey}-${graphName}-ontologies`,
+        //   icon: <SnippetsOutlined />,
+        //   isLeaf: true,
+        //   selectable: true,
+        //   nodeType: 'ontologies',
+        //   url: `${encodeURIComponent(datasetKey)}/${encodeURIComponent(graphName)}`,
+        // },
       ],
     };
   };
