@@ -1,6 +1,12 @@
 import express from "express";
 import ViteExpress from "vite-express";
 import bodyParser from "body-parser";
+import process from 'process';
+
+process.on('SIGINT', () => {
+  console.info("Interrupted");
+  process.exit(0);
+});
 
 const app = express();
 
@@ -68,4 +74,4 @@ app.use('/api/lastVersion', async (req, res) => {
   }
 });
 
-ViteExpress.listen(app, 5174, () => console.log("Server is listening..."));
+ViteExpress.listen(app, 3033, () => console.log("Server is listening..."));

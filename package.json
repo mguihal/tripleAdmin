@@ -45,6 +45,9 @@
     "vite": "^5.3.4",
     "vite-plugin-checker": "^0.8.0"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-musl": "4.9.5"
+  },
   "prettier": {
     "singleQuote": true,
     "trailingComma": "all",
