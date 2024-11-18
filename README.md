@@ -19,6 +19,18 @@ docker run -p 3033:3033 mguihal/tripleadmin:latest
 docker run -p 3033:3033 --add-host localhost:host-gateway mguihal/tripleadmin:latest
 ```
 
+- With Docker compose
+
+```yaml
+services:
+  tripleadmin:
+    image: mguihal/tripleadmin:latest
+    ports:
+      - '3033:3033'
+    extra_hosts:
+      - 'localhost:host-gateway' # If you want to access databases on localhost
+```
+
 - Locally
 
 ```bash
