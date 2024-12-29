@@ -4,6 +4,13 @@ import useGetServer from '../../hooks/useGetServer';
 import { useAppStateContext } from '../../hooks/useAppState';
 import { ServerAttributes } from '../../state/useServer';
 
+declare global {
+  interface Window {
+    TRIPLEADMIN_HOST: string;
+    TRIPLEADMIN_USERNAME: string;
+  }
+}
+
 const { Content, Footer } = Layout;
 
 type FieldType = {
@@ -22,9 +29,7 @@ const AuthPage = ({ onLogged }: Props) => {
   const { getServer } = useGetServer();
 
   const {
-    state: {
-      auth,
-    },
+    state: { auth },
     actions: {
       auth: { login },
     },
@@ -63,8 +68,8 @@ const AuthPage = ({ onLogged }: Props) => {
               onFinish={onFinish}
               form={form}
               initialValues={{
-                host: auth.getHost(),
-                username: auth.getUsername(),
+                host: window.TRIPLEADMIN_HOST || auth.getHost(),
+                username: window.TRIPLEADMIN_USERNAME || auth.getUsername(),
               }}
             >
               <Form.Item<FieldType>
@@ -76,11 +81,16 @@ const AuthPage = ({ onLogged }: Props) => {
                     message: 'This must be a valid url',
                   },
                 ]}
+                hidden={!!window.TRIPLEADMIN_HOST}
               >
                 <Input prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />} placeholder="Host" />
               </Form.Item>
 
-              <Form.Item<FieldType> name="username" rules={[{ required: true, message: 'Please input your username' }]}>
+              <Form.Item<FieldType>
+                name="username"
+                rules={[{ required: true, message: 'Please input your username' }]}
+                hidden={!!window.TRIPLEADMIN_USERNAME}
+              >
                 <Input prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />} placeholder="Username" />
               </Form.Item>
 
@@ -89,6 +99,7 @@ const AuthPage = ({ onLogged }: Props) => {
                   prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
                   type="password"
                   placeholder="Password"
+                  autoComplete="password"
                 />
               </Form.Item>
 

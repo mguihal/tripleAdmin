@@ -1,7 +1,7 @@
 import express from "express";
 import ViteExpress from "vite-express";
 import bodyParser from "body-parser";
-import process from 'process';
+import process from 'node:process';
 
 process.on('SIGINT', () => {
   console.info("Interrupted");
@@ -16,6 +16,11 @@ if (process.env.NODE_ENV === "production") {
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+app.use('/env.js', async (req, res) => {
+  const vars = ['TRIPLEADMIN_HOST', 'TRIPLEADMIN_USERNAME']
+  return res.send(vars.map(key => `window.${key} = "${process.env[key] || ''}"`).join(';'));
+});
 
 app.use('/api/server', async (req, res) => {
   if (!req.headers["x-triplehost"] || !req.headers["x-triplepath"]) {
@@ -35,7 +40,6 @@ app.use('/api/server', async (req, res) => {
           Accept: req.headers.accept || undefined,
         },
         ...(req.method === "POST" && {
-          // body: `query=${encodeURIComponent(req.body.query)}`,
           body: body.toString(),
         }),
       }
