@@ -17,6 +17,12 @@ docker run -p 3033:3033 mguihal/tripleadmin:latest
 
 # If you want to access databases on localhost
 docker run -p 3033:3033 --add-host localhost:host-gateway mguihal/tripleadmin:latest
+
+# You can define TRIPLEADMIN_HOST environment variable to force the host
+docker run -p 3033:3033 -e TRIPLEADMIN_HOST=http://fuseki:3030 mguihal/tripleadmin:latest
+
+# You can define TRIPLEADMIN_USER environment variable to force the user
+docker run -p 3033:3033 -e TRIPLEADMIN_USER=admin mguihal/tripleadmin:latest
 ```
 
 - With Docker compose
@@ -29,6 +35,9 @@ services:
       - '3033:3033'
     extra_hosts:
       - 'localhost:host-gateway' # If you want to access databases on localhost
+    environment:
+      - TRIPLEADMIN_HOST=http://fuseki:3030/ # If you want to force the host
+      - TRIPLEADMIN_USER=admin # If you want to force the user
 ```
 
 - Locally
