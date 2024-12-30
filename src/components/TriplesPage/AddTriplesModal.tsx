@@ -1,15 +1,13 @@
-import { Alert, AutoComplete, AutoCompleteProps, Button, Flex, Form, Input, Modal } from 'antd';
+import { Alert, AutoComplete, AutoCompleteProps, Button, Flex, Form, Input, Modal, Select } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useState } from 'react';
 import useQuery from '../../hooks/useQuery';
 import { useAppStateContext } from '../../hooks/useAppState';
+import { Triple } from './types';
+import DatatypeSelect from './DatatypeSelect';
 
 interface AddFormValues {
-  triples: {
-    subject: string;
-    predicate: string;
-    object: string;
-  }[];
+  triples: Triple[];
 }
 
 type Props = {
@@ -32,6 +30,11 @@ const AddTriplesModal = ({ open, onClose, onAdded }: Props) => {
   const [isPredicatesFetched, setIsPredicatesFetched] = useState(false);
   const [predicates, setPredicates] = useState<string[]>([]);
   const [options, setOptions] = useState<AutoCompleteProps['options']>([]);
+
+  const [form] = Form.useForm<AddFormValues>();
+  const triples = Form.useWatch('triples', form);
+
+  const isIRI = (triple: Triple) => triple?.object?.startsWith('<') && triple?.object?.endsWith('>');
 
   useEffect(() => {
     if (open && !isPredicatesFetched) {
@@ -65,8 +68,10 @@ const AddTriplesModal = ({ open, onClose, onAdded }: Props) => {
       ${graph === 'default' ? '' : `GRAPH <${graph}> {`}
       ${values.triples
         .map((row) => {
-          const quote = row.object.startsWith('<') && row.object.endsWith('>') ? '' : '"';
-          return `${row.subject} ${row.predicate} ${quote}${row.object}${quote} .`;
+          const quote = isIRI(row) ? '' : '"';
+          const dataType =
+            isIRI(row) || !row.datatype ? '' : `^^<${row.datatype === 'custom' ? row.customDatatype : row.datatype}>`;
+          return `${row.subject} ${row.predicate} ${quote}${row.object}${quote}${dataType} .`;
         })
         .join('\n')}
       ${graph === 'default' ? '' : `}`}
@@ -99,6 +104,7 @@ const AddTriplesModal = ({ open, onClose, onAdded }: Props) => {
       destroyOnClose
       modalRender={(dom) => (
         <Form
+          form={form}
           name="tripleAddForm"
           onFinish={(values) => handleAddTriples(values)}
           autoComplete="off"
@@ -122,7 +128,7 @@ const AddTriplesModal = ({ open, onClose, onAdded }: Props) => {
         {(fields, { add, remove }) => (
           <>
             {fields.map(({ key, name, ...restField }) => (
-              <Flex key={key} align="baseline" gap={8}>
+              <Flex key={key} align="start" gap={8}>
                 <Form.Item<AddFormValues['triples']>
                   {...restField}
                   name={[name, 'subject']}
@@ -155,9 +161,26 @@ const AddTriplesModal = ({ open, onClose, onAdded }: Props) => {
                   rules={[{ required: true, message: 'Missing object' }]}
                   style={{ flex: 1 }}
                 >
-                  <Input placeholder="<object> or object" />
+                  <Input.TextArea autoSize placeholder="<object> or object" />
                 </Form.Item>
-                <MinusCircleOutlined onClick={() => remove(name)} />
+                {isIRI(triples?.[name]) ? (
+                  <Select style={{ minWidth: 150 }} placeholder="Optional type" disabled={true} defaultValue={'IRI'} />
+                ) : (
+                  <Form.Item<AddFormValues['triples']> {...restField} name={[name, 'datatype']}>
+                    <DatatypeSelect />
+                  </Form.Item>
+                )}
+                {triples?.[name]?.datatype === 'custom' && (
+                  <Form.Item<AddFormValues['triples']>
+                    {...restField}
+                    name={[name, 'customDatatype']}
+                    rules={[{ required: true, message: 'Missing custom datatype' }]}
+                    style={{ flex: 1 }}
+                  >
+                    <Input placeholder="Custom datatype IRI" />
+                  </Form.Item>
+                )}
+                <MinusCircleOutlined onClick={() => remove(name)} style={{ marginTop: 8 }} />
               </Flex>
             ))}
             <Form.Item>

@@ -1,27 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Button,
-  Flex,
-  Form,
-  Input,
-  Modal,
-  Pagination,
-  Popconfirm,
-  Space,
-  TableColumnType,
-  Tooltip,
-  Typography,
-} from 'antd';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Flex, Form, Input, Modal, Pagination, Popconfirm, Space, TableColumnType, Tooltip } from 'antd';
 import { Table } from 'antd';
 import {
-  LinkOutlined,
-  FontSizeOutlined,
-  NodeIndexOutlined,
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
   CheckOutlined,
   CloseOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import useQuery, { ReadResponse, Row } from '../../hooks/useQuery';
 import { useResizeDetector } from 'react-resize-detector';
@@ -31,6 +17,8 @@ import { ResizeCallbackData } from 'react-resizable';
 import { ColumnType, TableProps } from 'antd/es/table';
 import { useAppStateContext } from '../../hooks/useAppState';
 import EditableCell from './EditableCell';
+import Cell from '../DataTable/Cell';
+import { isCustomDataType, Triple } from './types';
 
 type T = 'subject' | 'predicate' | 'object';
 
@@ -59,9 +47,12 @@ type Props<T extends string> = {
   onAddClick: () => void;
   onDelete: (nbRows: number, success: boolean) => void;
   onEdit: (success: boolean) => void;
+  onRefresh: () => void;
 };
 
 const COLUMN_DEFAULT_WIDTH = 400;
+
+const isIRI = (triple: Triple) => triple?.object?.startsWith('<') && triple?.object?.endsWith('>');
 
 const TriplesDataTable = ({
   queryResult,
@@ -73,6 +64,7 @@ const TriplesDataTable = ({
   onAddClick,
   onDelete,
   onEdit,
+  onRefresh,
 }: Props<T>) => {
   const { height, ref } = useResizeDetector();
 
@@ -90,7 +82,7 @@ const TriplesDataTable = ({
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [editingRowKey, setEditingRowKey] = useState<React.Key>();
 
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<Triple>();
 
   const formatEditFormValue = (col: TableRow<T>['subject']) => {
     if (col?.type === 'uri') {
@@ -106,6 +98,7 @@ const TriplesDataTable = ({
     },
   } = useAppStateContext();
   const { getQuery } = useQuery(urlObject.dataset || '');
+  const rendered = useRef<boolean>();
 
   const handleResize = useCallback(
     (index: number) =>
@@ -128,7 +121,11 @@ const TriplesDataTable = ({
         const subject = record.subject?.type === 'uri' ? `<${record.subject?.value}>` : `"${record.subject?.value}"`;
         const predicate =
           record.predicate?.type === 'uri' ? `<${record.predicate?.value}>` : `"${record.predicate?.value}"`;
-        const object = record.object?.type === 'uri' ? `<${record.object?.value}>` : `"${record.object?.value}"`;
+
+        let object = '';
+        if (record.object?.type === 'uri') object = `<${record.object?.value}>`;
+        else if (record.object?.type === 'literal')
+          object = `"${record.object?.value}"${record.object?.datatype ? `^^<${record.object.datatype}>` : ''}`;
 
         return `${subject} ${predicate} ${object}`;
       };
@@ -143,25 +140,33 @@ ${graph === 'default' ? '' : `  }\n`}}`;
   );
 
   const buildEditQuery = useCallback(
-    (record: TableRow<T>, fields: { subject: string; predicate: string; object: string }) => {
+    (record: TableRow<T>, fields: Triple) => {
       const formatRow = () => {
         const subject = record.subject?.type === 'uri' ? `<${record.subject?.value}>` : `"${record.subject?.value}"`;
         const predicate =
           record.predicate?.type === 'uri' ? `<${record.predicate?.value}>` : `"${record.predicate?.value}"`;
-        const object = record.object?.type === 'uri' ? `<${record.object?.value}>` : `"${record.object?.value}"`;
+
+        let object = '';
+        if (record.object?.type === 'uri') object = `<${record.object?.value}>`;
+        else if (record.object?.type === 'literal')
+          object = `"${record.object?.value}"${record.object?.datatype ? `^^<${record.object.datatype}>` : ''}`;
 
         return `${subject} ${predicate} ${object}`;
       };
 
       const graph = urlObject.graph || '';
-      const quote = fields.object.startsWith('<') && fields.object.endsWith('>') ? '' : '"';
+      const quote = isIRI(fields) ? '' : '"';
+      const dataType =
+        isIRI(fields) || !fields.datatype
+          ? ''
+          : `^^<${fields.datatype === 'custom' ? fields.customDatatype : fields.datatype}>`;
 
       return `${graph === 'default' ? '' : `WITH <${graph}>`}
       DELETE {
         ${formatRow()}
       }
       INSERT {
-        ${fields.subject} ${fields.predicate} ${quote}${fields.object}${quote}
+        ${fields.subject} ${fields.predicate} ${quote}${fields.object}${quote}${dataType}
       }
       WHERE {
         ${formatRow()}
@@ -255,7 +260,7 @@ ${graph === 'default' ? '' : `  }\n`}}`;
     form
       .validateFields()
       .then((fields) => {
-        const record = dataSource.find(r => r.key === editingRowKey);
+        const record = dataSource.find((r) => r.key === editingRowKey);
         if (!record) return;
         getQuery(buildEditQuery(record, fields))
           .then(() => {
@@ -287,25 +292,7 @@ ${graph === 'default' ? '' : `  }\n`}}`;
             title: column,
             key: column,
             dataIndex: column,
-            render: (data) => {
-              return (
-                <Flex gap={8}>
-                  <>
-                    {data?.type === 'uri' && <LinkOutlined style={{ color: 'rgb(4 127 209)' }} />}
-                    {data?.type === 'literal' && <FontSizeOutlined />}
-                    {data?.type === 'bnode' && <NodeIndexOutlined />}
-                  </>
-                  <Typography.Paragraph
-                    style={{ margin: 0, wordBreak: 'break-all' }}
-                    // ellipsis={{ rows: 3, expandable: 'collapsible', symbol: 'more' }}
-                  >
-                    {data?.type === 'uri' && <span style={{ color: 'rgb(4 127 209)' }}>{`<${data?.value}>`}</span>}
-                    {data?.type === 'literal' && data?.value}
-                    {data?.type === 'bnode' && data?.value}
-                  </Typography.Paragraph>
-                </Flex>
-              );
-            },
+            render: (data) => <Cell data={data} />,
             width: COLUMN_DEFAULT_WIDTH,
 
             // Sorting
@@ -377,6 +364,18 @@ ${graph === 'default' ? '' : `  }\n`}}`;
                       subject: formatEditFormValue(record.subject),
                       predicate: formatEditFormValue(record.predicate),
                       object: formatEditFormValue(record.object),
+                      datatype:
+                        record.object?.type === 'literal'
+                          ? record.object.datatype && isCustomDataType(record.object.datatype)
+                            ? 'custom'
+                            : record.object.datatype
+                          : undefined,
+                      customDatatype:
+                        record.object?.type === 'literal' &&
+                        record.object.datatype &&
+                        isCustomDataType(record.object.datatype)
+                          ? record.object.datatype
+                          : '',
                     });
                     setEditingRowKey(record.key);
                   }}
@@ -398,11 +397,33 @@ ${graph === 'default' ? '' : `  }\n`}}`;
         },
       },
     ]);
-  }, [filteredInfo, handleDeleteRow, queryResult, sortedInfo.columnKey, sortedInfo.order, editingRowKey, handleEditRow, form]);
+  }, [
+    filteredInfo,
+    handleDeleteRow,
+    queryResult,
+    sortedInfo.columnKey,
+    sortedInfo.order,
+    editingRowKey,
+    handleEditRow,
+    form,
+  ]);
 
   useEffect(() => {
     setFilteredDataSource(dataSource);
   }, [dataSource]);
+
+  useEffect(() => {
+    if (rendered.current) {
+      setSearchText('');
+      setFilteredDataSource([]);
+      setFilteredInfo({});
+      setSortedInfo({});
+      setSelectedRowKeys([]);
+      setEditingRowKey(undefined);
+    } else {
+      rendered.current = true;
+    }
+  }, [urlObject]);
 
   const handleSearch = useCallback(
     (searchValue: string) => {
@@ -431,6 +452,9 @@ ${graph === 'default' ? '' : `  }\n`}}`;
         )}
         <Button icon={<PlusOutlined />} onClick={() => onAddClick()}>
           Add new triples
+        </Button>
+        <Button icon={<ReloadOutlined />} onClick={() => onRefresh()}>
+          Refresh
         </Button>
         <div style={{ flex: 1 }} />
         <Input.Search

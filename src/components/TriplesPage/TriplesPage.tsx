@@ -118,15 +118,17 @@ const TriplesPage = () => {
     [getQuery, urlObject.graph],
   );
 
+  // Initial request
   useEffect(() => {
     getTotalRows({}, '');
     fetchData(DEFAULT_PAGESIZE, 0, undefined, undefined, {}, '');
   }, [getTotalRows, fetchData]);
 
+  // Refetch if pagination/filters have changed
   useEffect(() => {
     if (paginationFilterState) {
       if (
-        previousPaginationFilterState.current && (
+        !previousPaginationFilterState.current || (
           (previousPaginationFilterState.current.searchText !== paginationFilterState?.searchText) ||
           ((previousPaginationFilterState.current.filters.subject || []).join(';') !== (paginationFilterState?.filters.subject || []).join(';')) ||
           ((previousPaginationFilterState.current.filters.predicate || []).join(';') !== (paginationFilterState?.filters.predicate || []).join(';')) ||
@@ -146,6 +148,13 @@ const TriplesPage = () => {
       );
     }
   }, [fetchData, getTotalRows, paginationFilterState]);
+
+  useEffect(() => {
+    setPaginationFilterState(undefined);
+    previousPaginationFilterState.current = undefined;
+    getTotalRows({}, '');
+    fetchData(DEFAULT_PAGESIZE, 0, undefined, undefined, {}, '');
+  }, [fetchData, getTotalRows, urlObject]);
 
   return (
     <>
@@ -194,6 +203,18 @@ const TriplesPage = () => {
               type: success ? 'success' : 'error',
               content: success ? `Triple updated successfully` : 'An error occurred during update',
             });
+          }}
+          onRefresh={() => {
+            getTotalRows(paginationFilterState?.filters || {}, paginationFilterState?.searchText || '');
+            fetchData(
+              paginationFilterState?.pagination.pageSize || DEFAULT_PAGESIZE,
+              (paginationFilterState?.pagination.pageSize || DEFAULT_PAGESIZE) *
+                ((paginationFilterState?.pagination.current || 1) - 1),
+              (paginationFilterState?.sorter.columnKey as string) || undefined,
+              paginationFilterState?.sorter.order,
+              paginationFilterState?.filters || {},
+              paginationFilterState?.searchText || '',
+            );
           }}
         />
       )}

@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Flex, Input, Pagination, Segmented, Table, TableColumnsType, Typography } from 'antd';
-import { LinkOutlined, FontSizeOutlined, NodeIndexOutlined, TableOutlined } from '@ant-design/icons';
+import { Flex, Input, Pagination, Segmented, Table, TableColumnsType } from 'antd';
+import { TableOutlined } from '@ant-design/icons';
 import { ReadResponse, Row } from '../../hooks/useQuery';
 import { useResizeDetector } from 'react-resize-detector';
 import classes from './DataTable.module.scss';
 import ResizableTitle from './ResizableTitle';
 import { ResizeCallbackData } from 'react-resizable';
 import { ColumnType, TableProps } from 'antd/es/table';
+import Cell from './Cell';
 
 type TableRow<T extends string> = Row<T> & {
   key: string;
@@ -80,25 +81,7 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
             title: column,
             key: column,
             dataIndex: column,
-            render: (data) => {
-              return (
-                <Flex gap={8}>
-                  <>
-                    {data?.type === 'uri' && <LinkOutlined style={{ color: 'rgb(4 127 209)' }} />}
-                    {data?.type === 'literal' && <FontSizeOutlined />}
-                    {data?.type === 'bnode' && <NodeIndexOutlined />}
-                  </>
-                  <Typography.Paragraph
-                    style={{ margin: 0, wordBreak: 'break-all' }}
-                    ellipsis={{ rows: 3, expandable: true, symbol: 'more' }}
-                  >
-                    {data?.type === 'uri' && <span style={{ color: 'rgb(4 127 209)' }}>{`<${data?.value}>`}</span>}
-                    {data?.type === 'literal' && data?.value}
-                    {data?.type === 'bnode' && data?.value}
-                  </Typography.Paragraph>
-                </Flex>
-              );
-            },
+            render: (data) => <Cell data={data} />,
             width: COLUMN_DEFAULT_WIDTH, //xScroll ? 500 : undefined,
 
             // Sorting

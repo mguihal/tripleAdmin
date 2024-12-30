@@ -4,10 +4,23 @@ import { useAppStateContext } from './useAppState';
 
 const parser = new Parser();
 
-export type Column = {
-  type: 'uri' | 'literal' | 'bnode';
+type URIColumn = {
+  type: 'uri';
   value: string;
 };
+
+type BNodeColumn = {
+  type: 'bnode';
+  value: string;
+};
+
+type LiteralColumn = {
+  type: 'literal';
+  value: string;
+  datatype?: string;
+};
+
+export type Column = URIColumn | BNodeColumn | LiteralColumn;
 
 export type Row<T extends string> = {
   [column in T]: Column | undefined;
