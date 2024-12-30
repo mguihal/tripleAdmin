@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, Key } from 'react';
-import { Divider, Layout, theme, Tree, TreeDataNode } from 'antd';
+import { Divider, Input, Layout, theme, Tree, TreeDataNode } from 'antd';
 import {
   DatabaseOutlined,
   NodeIndexOutlined,
@@ -24,8 +24,11 @@ const Sidebar = () => {
   } = theme.useToken();
 
   const [treeData, setTreeData] = useState<DBNavigatorNode[]>();
+  const [filteredTreeData, setFilteredTreeData] = useState<DBNavigatorNode[]>();
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
+
+  const [searchValue, setSearchValue] = useState('');
 
   const {
     state: {
@@ -55,6 +58,11 @@ const Sidebar = () => {
       }) || [],
     );
   }, [attributes]);
+
+  // Tree filtering
+  useEffect(() => {
+    setFilteredTreeData(treeData?.filter(d => (d.title as string)?.indexOf(searchValue) !== -1));
+  }, [treeData, searchValue]);
 
   // Route validation & Tree selection
   useEffect(() => {
@@ -175,11 +183,19 @@ const Sidebar = () => {
   );
 
   return (
-    <Sider width={'100%'} style={{ background: colorBgContainer, height: '100%' }}>
+    <Sider width={'100%'} style={{ background: colorBgContainer, height: '100%', overflowY: 'auto' }}>
       <Divider>Datasets</Divider>
+      <Input.Search
+        placeholder="Search dataset"
+        allowClear
+        size="small"
+        style={{ width: '90%', display: 'block', margin: 'auto', marginBottom: '16px' }}
+        value={searchValue}
+        onChange={(e) => setSearchValue(e.target.value)}
+      />
       <Tree.DirectoryTree
         showIcon
-        treeData={treeData}
+        treeData={filteredTreeData}
         loadData={onLoadData}
         expandedKeys={expandedKeys}
         selectedKeys={selectedKeys}
