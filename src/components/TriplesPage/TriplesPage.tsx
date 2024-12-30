@@ -111,8 +111,7 @@ const TriplesPage = () => {
         })
         .catch((error) => {
           setPendingDataQuery(false);
-          setQueryResult({ type: 'error' });
-          console.log('ERR', error);
+          setQueryResult({ type: 'error', error: error.message });
         });
     },
     [getQuery, urlObject.graph],
@@ -128,19 +127,22 @@ const TriplesPage = () => {
   useEffect(() => {
     if (paginationFilterState) {
       if (
-        !previousPaginationFilterState.current || (
-          (previousPaginationFilterState.current.searchText !== paginationFilterState?.searchText) ||
-          ((previousPaginationFilterState.current.filters.subject || []).join(';') !== (paginationFilterState?.filters.subject || []).join(';')) ||
-          ((previousPaginationFilterState.current.filters.predicate || []).join(';') !== (paginationFilterState?.filters.predicate || []).join(';')) ||
-          ((previousPaginationFilterState.current.filters.object || []).join(';') !== (paginationFilterState?.filters.object || []).join(';'))
-        )
+        !previousPaginationFilterState.current ||
+        previousPaginationFilterState.current.searchText !== paginationFilterState?.searchText ||
+        (previousPaginationFilterState.current.filters.subject || []).join(';') !==
+          (paginationFilterState?.filters.subject || []).join(';') ||
+        (previousPaginationFilterState.current.filters.predicate || []).join(';') !==
+          (paginationFilterState?.filters.predicate || []).join(';') ||
+        (previousPaginationFilterState.current.filters.object || []).join(';') !==
+          (paginationFilterState?.filters.object || []).join(';')
       ) {
         getTotalRows(paginationFilterState.filters, paginationFilterState.searchText);
       }
 
       fetchData(
         paginationFilterState.pagination.pageSize || DEFAULT_PAGESIZE,
-        (paginationFilterState.pagination.pageSize || DEFAULT_PAGESIZE) * ((paginationFilterState.pagination.current || 1) - 1),
+        (paginationFilterState.pagination.pageSize || DEFAULT_PAGESIZE) *
+          ((paginationFilterState.pagination.current || 1) - 1),
         (paginationFilterState.sorter.columnKey as string) || undefined,
         paginationFilterState.sorter.order,
         paginationFilterState.filters,
@@ -186,7 +188,9 @@ const TriplesPage = () => {
             );
             messageApi.open({
               type: success ? 'success' : 'error',
-              content: success ? `${nbRows} triple have been deleted successfully` : 'An error occurred during deletion',
+              content: success
+                ? `${nbRows} triple have been deleted successfully`
+                : 'An error occurred during deletion',
             });
           }}
           onEdit={(success) => {
@@ -221,7 +225,9 @@ const TriplesPage = () => {
 
       {queryResult?.type === 'error' && (
         <Flex vertical justify="center" style={{ height: '100%' }}>
-          <Result status="error" title="An error occurred during query execution" />
+          <Result status="error" title="An error occurred during query execution">
+            {queryResult.error && <pre style={{ textWrap: 'pretty' }}>{queryResult.error}</pre>}
+          </Result>
         </Flex>
       )}
 

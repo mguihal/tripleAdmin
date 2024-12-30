@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Avatar, Button, ConfigProvider, Empty, Flex, Input, List, Pagination, Tooltip, Typography } from 'antd';
-import { EditOutlined, CaretRightOutlined, DeleteOutlined, ReadOutlined } from '@ant-design/icons';
+import { EditOutlined, CaretRightOutlined, DeleteOutlined, ReadOutlined, WarningOutlined } from '@ant-design/icons';
 import { Parser } from 'sparqljs';
 import { useAppStateContext } from '../../hooks/useAppState';
 import classes from './QueryHistory.module.scss';
@@ -35,13 +35,21 @@ const QueryHistory = ({ dataset, onEditQuery, onRerunQuery }: Props) => {
   } = useAppStateContext();
 
   const historyWithIndex = (queryState[dataset]?.history || []).map((d, i) => {
-    const parsedQuery = parser.parse(d.query);
+    try {
+      const parsedQuery = parser.parse(d.query);
 
-    return {
-      ...d,
-      index: i,
-      queryType: parsedQuery.type,
-    };
+      return {
+        ...d,
+        index: i,
+        queryType: parsedQuery.type,
+      };
+    } catch (e) {
+      return {
+        ...d,
+        index: i,
+        queryType: 'error'
+      }
+    }
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,9 +124,11 @@ const QueryHistory = ({ dataset, onEditQuery, onRerunQuery }: Props) => {
               <List.Item.Meta
                 avatar={
                   item.queryType === 'query' ? (
-                    <Avatar icon={<ReadOutlined />} style={{ backgroundColor: 'rgb(22, 120, 255)' }} />
+                    <Avatar icon={<ReadOutlined />} style={{ backgroundColor: 'rgb(39 156 78)' }} />
+                  ) : item.queryType === 'error' ? (
+                    <Avatar icon={<WarningOutlined />} style={{ backgroundColor: '#ff4d4f' }} />
                   ) : (
-                    <Avatar icon={<EditOutlined />} style={{ backgroundColor: '#ff4d4f' }} />
+                    <Avatar icon={<EditOutlined />} style={{ backgroundColor: 'rgb(22, 120, 255)' }} />
                   )
                 }
                 title={

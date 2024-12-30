@@ -55,6 +55,7 @@ type UpdateResponse = {
 
 type ErrorResponse = {
   type: 'error';
+  error?: string;
 };
 
 export type Response<T extends string> =

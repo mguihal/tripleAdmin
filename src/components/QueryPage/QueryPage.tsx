@@ -49,8 +49,7 @@ const QueryPage = ({ dataset }: Props) => {
         })
         .catch((error) => {
           setPendingQuery(false);
-          setQueryResult({ type: 'error' });
-          console.log('ERR', error);
+          setQueryResult({ type: 'error', error: error.message });
         });
     },
     [dataset, getQuery, pushQueryHistory, setActiveQueryTime],
@@ -99,8 +98,11 @@ const QueryPage = ({ dataset }: Props) => {
               }}
               extensions={[json()]}
               readOnly
-              style={{height: '100%'}}
+              style={{ height: 'calc(100% - 48px)' }}
             />
+            <Flex justify="space-between" align="center" style={{ height: 48, paddingLeft: 10, paddingRight: 10 }}>
+              <div>{activeQueryTime}ms</div>
+            </Flex>
           </Flex>
         )}
 
@@ -112,7 +114,9 @@ const QueryPage = ({ dataset }: Props) => {
 
         {view === 'results' && queryResult?.type === 'error' && (
           <Flex vertical justify="center" style={{ height: '100%' }}>
-            <Result status="error" title="An error occurred during query execution" />
+            <Result status="error" title="An error occurred during query execution">
+              {queryResult.error && <pre style={{ textWrap: 'pretty' }}>{queryResult.error}</pre>}
+            </Result>
           </Flex>
         )}
 
