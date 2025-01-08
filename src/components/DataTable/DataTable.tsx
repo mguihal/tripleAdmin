@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Flex, Input, Pagination, Segmented, Table, TableColumnsType } from 'antd';
-import { TableOutlined } from '@ant-design/icons';
+import { Button, Flex, Input, Pagination, Segmented, Table, TableColumnsType, Tooltip } from 'antd';
+import { TableOutlined, FileTextOutlined, DownloadOutlined } from '@ant-design/icons';
+import CodeMirror from '@uiw/react-codemirror';
 import { ReadResponse, Row } from '../../hooks/useQuery';
 import { useResizeDetector } from 'react-resize-detector';
 import classes from './DataTable.module.scss';
@@ -19,6 +20,8 @@ type Filters<T extends string> = Parameters<OnChange<T>>[1];
 
 type GetSingle<T> = T extends (infer U)[] ? U : never;
 type Sorts<T extends string> = GetSingle<Parameters<OnChange<T>>[2]>;
+
+type ViewFormat = 'table' | 'csv';
 
 type Props<T extends string> = {
   queryResult: ReadResponse<T>;
@@ -40,6 +43,25 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
 
   const [filteredInfo, setFilteredInfo] = useState<Filters<T>>({});
   const [sortedInfo, setSortedInfo] = useState<Sorts<T>>({});
+
+  const [viewFormat, setViewFormat] = useState<ViewFormat>('table');
+  const [csvUrl, setCSVUrl] = useState('#');
+
+  const csvContent = useMemo(() => {
+    const columns = queryResult.data.head.vars;
+    const header = columns.map(c => `"${c.replaceAll('"', '""')}"`).join(',');
+    const data = queryResult.data.results.bindings.map(row => {
+      return columns.map(c => `"${row[c]?.value.replaceAll('"', '""')}"`).join(',');
+    });
+
+    return header + '\n' + data.join('\n');
+  }, [queryResult]);
+
+  useEffect(() => {
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    setCSVUrl(url);
+  }, [csvContent]);
 
   const handleResize = useCallback(
     (index: number) =>
@@ -170,65 +192,90 @@ const DataTable = <T extends string>({ queryResult, queryTime }: Props<T>) => {
   return (
     <Flex vertical justify="flex-start" style={{ height: '100%' }} ref={ref}>
       <Flex justify="flex-start" align="center" gap={8} style={{ height: 48, paddingLeft: 10, paddingRight: 10 }}>
-        <Segmented options={[{ value: 'table', icon: <TableOutlined />, label: 'Table' }]} />
+        <Segmented value={viewFormat} onChange={(v) => setViewFormat(v as ViewFormat)} options={[
+          { value: 'table', icon: <TableOutlined />, label: 'Table' },
+          { value: 'csv', icon: <FileTextOutlined />, label: 'CSV' },
+        ]} />
         <div style={{ flex: 1 }} />
-        <Input.Search
-          allowClear
-          placeholder="Search into rows"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          onSearch={handleSearch}
-          style={{ maxWidth: 500 }}
-        />
+        <Tooltip title="Download as CSV">
+          <Button href={csvUrl} download="queryResults.csv" icon={<DownloadOutlined />} />
+        </Tooltip>
+        {viewFormat === 'table' && (
+          <Input.Search
+            allowClear
+            placeholder="Search into rows"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onSearch={handleSearch}
+            style={{ maxWidth: 500 }}
+          />
+        )}
       </Flex>
-      <Table
-        bordered
-        virtual
-        className={classes.table}
-        // tableLayout="auto"
-        dataSource={filteredDataSource}
-        columns={mergedColumns}
-        scroll={{
-          y: (height || 0) - 55 - 48 - 48,
-          // x: 'max-content',
-          // x: 1560
-        }}
-        pagination={{
-          hideOnSinglePage: false,
-          showSizeChanger: true,
-          pageSize: pageSize,
-          current: currentPage,
-          onChange: (page, size) => {
-            setCurrentPage(page);
-            setPageSize(size);
-          },
-        }}
-        components={{
-          header: {
-            cell: ResizableTitle,
-          },
-        }}
-        onChange={handleChange}
-      />
+
+      {viewFormat === 'table' && (
+        <Table
+          bordered
+          virtual
+          className={classes.table}
+          // tableLayout="auto"
+          dataSource={filteredDataSource}
+          columns={mergedColumns}
+          scroll={{
+            y: (height || 0) - 55 - 48 - 48,
+            // x: 'max-content',
+            // x: 1560
+          }}
+          pagination={{
+            hideOnSinglePage: false,
+            showSizeChanger: true,
+            pageSize: pageSize,
+            current: currentPage,
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+          }}
+          components={{
+            header: {
+              cell: ResizableTitle,
+            },
+          }}
+          onChange={handleChange}
+        />
+      )}
+
+      {viewFormat === 'csv' && (
+        <CodeMirror
+          value={csvContent}
+          height={'100%'}
+          readOnly
+          style={{ height: 'calc(100% - 48px - 48px)' }}
+        />
+      )}
+
       <div style={{ flex: 1 }} />
       <Flex justify="space-between" align="center" style={{ height: 48, paddingLeft: 10, paddingRight: 10 }}>
         <div>{queryTime}ms</div>
-        <div>
-          {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredDataSource.length)} of{' '}
-          {filteredDataSource.length} {`${filteredDataSource.length > 1 ? 'rows' : 'row'}`}
-          {filteredDataSource.length < dataSource.length &&
-            ` (filtered on ${dataSource.length} ${dataSource.length > 1 ? 'rows' : 'row'})`}
-        </div>
-        <Pagination
-          showSizeChanger
-          current={currentPage}
-          pageSize={pageSize}
-          onChange={(page, size) => {
-            setCurrentPage(page);
-            setPageSize(size);
-          }}
-          total={filteredDataSource.length}
-        />
+        {viewFormat === 'table' && (
+          <div>
+            {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredDataSource.length)} of{' '}
+            {filteredDataSource.length} {`${filteredDataSource.length > 1 ? 'rows' : 'row'}`}
+            {filteredDataSource.length < dataSource.length &&
+              ` (filtered on ${dataSource.length} ${dataSource.length > 1 ? 'rows' : 'row'})`}
+          </div>
+        )}
+        {viewFormat === 'table' && (
+          <Pagination
+            showSizeChanger
+            current={currentPage}
+            pageSize={pageSize}
+            onChange={(page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            }}
+            total={filteredDataSource.length}
+          />
+        )}
       </Flex>
     </Flex>
   );
